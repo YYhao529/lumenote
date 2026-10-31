@@ -220,8 +220,8 @@ export function showLightbox(images = [], startIndex = 0) {
 export function avatar(user, size = 'md', { ring = false } = {}) {
   const isObject = user && typeof user === 'object';
   const name = isObject
-    ? user.nickname || user.creatorName || user.name || '小哈书'
-    : String(user || '小哈书');
+    ? user.nickname || user.creatorName || user.name || '时光笔记'
+    : String(user || '时光笔记');
   const rawAvatar = isObject ? safeUrl(user.avatar) : '';
   const hue = hashHue(name);
   return `<span class="avatar avatar-${size}${ring ? ' avatar-ring' : ''}" style="--avatar-hue:${hue}" title="${escapeHtml(name)}">
@@ -293,7 +293,7 @@ export function noteCard(note, { showPrivate = true } = {}) {
       <div class="note-meta">
         <span class="note-author">
           ${nickname ? avatar({ nickname, avatar: note.avatar }, 'xs') : ''}
-          <span class="name">${escapeHtml(nickname || '小哈书用户')}</span>
+          <span class="name">${escapeHtml(nickname || '时光笔记用户')}</span>
         </span>
         ${
           likeTotal !== '' || liked
@@ -467,9 +467,9 @@ export function initNoteVideoPreview() {
 
 export function userRow(user, { actionHtml = '', showBio = true } = {}) {
   const id = String(user?.userId ?? user?.id ?? '');
-  const name = user?.nickname || '小哈书用户';
+  const name = user?.nickname || '时光笔记用户';
   const meta = [];
-  if (user?.xiaohashuId) meta.push(`小哈书号 ${user.xiaohashuId}`);
+  if (user?.lumenoteId) meta.push(`时光笔记号 ${user.lumenoteId}`);
   if (user?.noteTotal !== undefined && user?.noteTotal !== null) {
     meta.push(`${formatCount(user.noteTotal)} 笔记`);
   }

@@ -9,7 +9,7 @@
  * 也可以在「接口联调」页面里临时填写直连地址（需要后端开启 CORS）。
  */
 
-const API_BASE_KEY = 'xhs:apiBase';
+const API_BASE_KEY = 'lumenote:apiBase';
 
 function readApiBase() {
   try {
@@ -24,7 +24,7 @@ export const CONFIG = {
   requestTimeout: 20000,
   uploadTimeout: 120000,
   apiBase: readApiBase(),
-  storagePrefix: 'xhs:',
+  storagePrefix: 'lumenote:',
 };
 
 export function setApiBase(value) {

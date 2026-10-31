@@ -73,7 +73,7 @@ export default {
       return;
     }
 
-    const displayName = user.nickname || '小哈书用户';
+    const displayName = user.nickname || '时光笔记用户';
     const coverUrl = safeUrl(user.backgroundImg || '');
 
     root.innerHTML = `<div class="profile-page">

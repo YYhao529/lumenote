@@ -29,7 +29,7 @@ import { createNotesPanel } from './notes-panel.js';
 import { createRelationsPanel } from './relations-panel.js';
 
 const NICKNAME_RE = /[!@#$%^&*(),.?":{}|<>]/;
-const XIAOHASHU_ID_RE = /^[a-zA-Z0-9_]{6,15}$/;
+const LUMENOTE_ID_RE = /^[a-zA-Z0-9_]{6,15}$/;
 const PHONE_RE = /^\d{11}$/;
 
 export default {
@@ -73,7 +73,7 @@ export default {
         <div class="profile-head">
           <div class="profile-avatar">${avatar(me, 'xl', { ring: true })}</div>
           <div class="profile-info">
-            <div class="profile-name">${escapeHtml(me.nickname || '小哈书用户')}
+            <div class="profile-name">${escapeHtml(me.nickname || '时光笔记用户')}
               <span class="badge badge-brand">我</span>
             </div>
             <div class="profile-id">
@@ -306,8 +306,8 @@ export default {
             </div>
 
             <div class="field">
-              <label class="field-label" for="edit-xiaohashu">小哈书号</label>
-              <input class="input" id="edit-xiaohashu" type="text" maxlength="15"
+              <label class="field-label" for="edit-lumenote">时光笔记号</label>
+              <input class="input" id="edit-lumenote" type="text" maxlength="15"
                 placeholder="留空则不修改">
               <span class="field-hint">6 - 15 位字母、数字或下划线</span>
             </div>
@@ -391,7 +391,7 @@ export default {
 
           saveBtn?.addEventListener('click', async () => {
             const nickname = dialog.querySelector('#edit-nickname').value.trim();
-            const xiaohashuId = dialog.querySelector('#edit-xiaohashu').value.trim();
+            const lumenoteId = dialog.querySelector('#edit-lumenote').value.trim();
             const sex = dialog.querySelector('#edit-sex').value;
             const birthday = dialog.querySelector('#edit-birthday').value;
             const introduction = dialog
@@ -406,8 +406,8 @@ export default {
               showError('昵称不能包含 @ # $ % 等特殊字符');
               return;
             }
-            if (xiaohashuId && !XIAOHASHU_ID_RE.test(xiaohashuId)) {
-              showError('小哈书号需要 6 - 15 位字母、数字或下划线');
+            if (lumenoteId && !LUMENOTE_ID_RE.test(lumenoteId)) {
+              showError('时光笔记号需要 6 - 15 位字母、数字或下划线');
               return;
             }
             if (introduction.length > 100) {
@@ -422,8 +422,8 @@ export default {
               formData.append('nickname', nickname);
               changed = true;
             }
-            if (xiaohashuId) {
-              formData.append('xiaohashuId', xiaohashuId);
+            if (lumenoteId) {
+              formData.append('lumenoteId', lumenoteId);
               changed = true;
             }
             if (sex !== '') {

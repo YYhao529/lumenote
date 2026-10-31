@@ -191,7 +191,7 @@ async function render() {
     if (activeController) activeController.abort();
     runCleanups();
     setActiveNav('');
-    document.title = '页面不存在 · 小哈书';
+    document.title = '页面不存在 · 时光笔记';
     root.innerHTML = `<div class="page">${emptyState({
       icon: 'compass',
       title: '页面走丢了',
@@ -214,7 +214,7 @@ async function render() {
   runCleanups();
 
   document.body.dataset.page = route.name;
-  document.title = `${route.title} · 小哈书`;
+  document.title = `${route.title} · 时光笔记`;
   setActiveNav(route.name);
   root.innerHTML = '';
   window.scrollTo({ top: 0 });
@@ -230,7 +230,7 @@ async function render() {
       if (typeof fn === 'function') cleanupFns.push(fn);
     },
     setTitle(title) {
-      if (title) document.title = `${title} · 小哈书`;
+      if (title) document.title = `${title} · 时光笔记`;
     },
   };
 

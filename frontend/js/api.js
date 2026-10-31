@@ -125,7 +125,7 @@ async function request(path, options = {}) {
   if (res.status === 401) {
     if (options.handle401 !== false) {
       window.dispatchEvent(
-        new CustomEvent('xhs:unauthorized', {
+        new CustomEvent('lumenote:unauthorized', {
           detail: { message: json?.message || '登录状态已失效，请重新登录' },
         })
       );

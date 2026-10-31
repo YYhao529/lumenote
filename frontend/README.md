@@ -1,4 +1,4 @@
-# 小哈书 Web 前端（电脑端）
+# 时光笔记 Web 前端（电脑端）
 
 基于本项目 Spring Cloud Alibaba 微服务接口实现的 **面向 PC 浏览器的 HTML + CSS + 原生 JavaScript 前端**，无构建工具、无 npm 依赖。
 
@@ -45,7 +45,7 @@ node server.js 5190    # 指定端口
 
 ## 一、为什么需要 server.js
 
-当前网关 `xiaohashu-gateway` 有两个前端无法绕开的问题：
+当前网关 `lumenote-gateway` 有两个前端无法绕开的问题：
 
 1. **没有配置 CORS**。浏览器从 `http://127.0.0.1:5180` 直连 `http://127.0.0.1:8000` 会被跨域拦截。
 2. **网关只路由了 `/auth`、`/user`、`/note`、`/relation`**，没有 `/search` 与 `/file`，而搜索服务（8092）和 OSS 服务（8081）又是发布笔记、上传头像所必需的。
@@ -218,7 +218,7 @@ frontend/
 ## 六、本地联调建议顺序
 
 1. 启动 Nacos、MySQL、Redis、RabbitMQ、（搜索需要的）Elasticsearch / Canal。
-2. 启动 `xiaohashu-gateway`（8000）以及需要的微服务：
+2. 启动 `lumenote-gateway`（8000）以及需要的微服务：
    - 认证：8080
    - 用户：8082
    - 笔记：8086
@@ -228,7 +228,7 @@ frontend/
 3. `cd frontend && node server.js`
 4. 打开 `http://127.0.0.1:5180`，先看「接口」页的三个健康状态。
 5. 登录：
-   - 验证码登录：点「获取验证码」后，到 `xiaohashu-auth` 日志里搜 `已生成验证码`；
+   - 验证码登录：点「获取验证码」后，到 `lumenote-auth` 日志里搜 `已生成验证码`；
    - 密码登录：需要该手机号已设置过密码。
 6. 发布笔记需要 OSS 可用（或直接粘贴图片外链）。
 

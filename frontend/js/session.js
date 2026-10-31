@@ -20,7 +20,7 @@ export async function resolveMe(options = {}) {
   const profile = await api.findById(found.id, options);
   const me = {
     id: String(found.id),
-    nickname: profile?.nickname || '小哈书用户',
+    nickname: profile?.nickname || '时光笔记用户',
     avatar: profile?.avatar || '',
     introduction: profile?.introduction || '',
     backgroundImg: profile?.backgroundImg || '',

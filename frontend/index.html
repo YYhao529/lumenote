@@ -4,8 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#ff2442">
-  <meta name="description" content="小哈书 —— 记录生活，发现同好。">
-  <title>小哈书 · 发现你的热爱</title>
+  <meta name="description" content="时光笔记 —— 记录生活，发现同好。">
+  <title>时光笔记 · 发现你的热爱</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='18' fill='%23ff2442'/%3E%3Cpath d='M32 47s-14-8.6-14-18a8 8 0 0 1 14-5 8 8 0 0 1 14 5c0 9.4-14 18-14 18z' fill='white'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="./css/base.css">
   <link rel="stylesheet" href="./css/components.css">
@@ -13,7 +13,7 @@
   <script>
     // 尽早应用已保存的主题，避免深色模式首屏闪白
     try {
-      if (localStorage.getItem('xhs:theme') === 'dark') {
+      if (localStorage.getItem('lumenote:theme') === 'dark') {
         document.documentElement.setAttribute('data-theme', 'dark');
       }
     } catch (err) {
@@ -26,9 +26,9 @@
 
   <header class="site-header">
     <div class="header-inner">
-      <a class="brand" href="#/explore" aria-label="小哈书首页">
+      <a class="brand" href="#/explore" aria-label="时光笔记首页">
         <span class="brand-mark" aria-hidden="true">小</span>
-        <span class="brand-name">小哈书</span>
+        <span class="brand-name">时光笔记</span>
       </a>
 
       <form class="header-search" id="header-search" role="search" autocomplete="off">
@@ -63,7 +63,7 @@
 
   <footer class="site-footer">
     <div class="footer-inner">
-      <p>© 2026 小哈书 · 记录你的生活灵感</p>
+      <p>© 2026 时光笔记 · 记录你的生活灵感</p>
     </div>
   </footer>
 
@@ -71,7 +71,7 @@
   <div id="dialog-root"></div>
 
   <noscript>
-    <div class="noscript">小哈书 Web 需要启用 JavaScript 才能运行。</div>
+    <div class="noscript">时光笔记 Web 需要启用 JavaScript 才能运行。</div>
   </noscript>
 
   <script type="module" src="./js/app.js"></script>

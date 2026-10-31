@@ -10,7 +10,7 @@ const GROUPS = [
   {
     id: 'auth',
     name: '认证服务',
-    port: '网关 8000 → xiaohashu-auth 8080',
+    port: '网关 8000 → lumenote-auth 8080',
     items: [
       {
         path: '/auth/verification/code/send',
@@ -49,14 +49,14 @@ const GROUPS = [
   {
     id: 'user',
     name: '用户服务',
-    port: '网关 8000 → xiaohashu-user 8082',
+    port: '网关 8000 → lumenote-user 8082',
     items: [
       {
         path: '/user/update',
         auth: true,
         multipart: true,
         desc: '更新用户资料（multipart）',
-        req: 'multipart/form-data 字段：\navatar（文件，可选）\nbackgroundImg（文件，可选）\nnickname（2-24 字符）\nxiaohashuId（6-15 位字母/数字/下划线）\nsex（0 女 / 1 男）\nbirthday（yyyy-MM-dd）\nintroduction（1-100 字符）',
+        req: 'multipart/form-data 字段：\navatar（文件，可选）\nbackgroundImg（文件，可选）\nnickname（2-24 字符）\nlumenoteId（6-15 位字母/数字/下划线）\nsex（0 女 / 1 男）\nbirthday（yyyy-MM-dd）\nintroduction（1-100 字符）',
         res: '{ "success": true }',
         note: '后端直接按字段名绑定 UpdateUserInfoReqVO；留空的字段不会更新。',
       },
@@ -82,7 +82,7 @@ const GROUPS = [
         desc: '根据用户 ID 查询用户资料',
         req: { id: '用户 ID' },
         res: '{ "success": true, "data": { "id": "…", "nickname": "小红薯10000", "avatar": "https://…", "introduction": "…" } }',
-        note: '只返回昵称、头像、简介，不含小哈书号、性别、生日与笔记数。',
+        note: '只返回昵称、头像、简介，不含时光笔记号、性别、生日与笔记数。',
       },
       {
         path: '/user/findByIds',
@@ -105,7 +105,7 @@ const GROUPS = [
   {
     id: 'note',
     name: '笔记服务',
-    port: '网关 8000 → xiaohashu-note 8086',
+    port: '网关 8000 → lumenote-note 8086',
     items: [
       {
         path: '/note/publish',
@@ -214,7 +214,7 @@ const GROUPS = [
   {
     id: 'relation',
     name: '用户关系服务',
-    port: '网关 8000 → xiaohashu-user-relation 8087',
+    port: '网关 8000 → lumenote-user-relation 8087',
     items: [
       {
         path: '/relation/follow',
@@ -268,7 +268,7 @@ const GROUPS = [
         auth: false,
         desc: '搜索用户（Elasticsearch）',
         req: { keyword: '小红薯', pageNo: 1 },
-        res: '{ "success": true, "data": [ { "userId": "…", "nickname": "…", "highlightNickname": "<strong>小红薯</strong>…", "avatar": "…", "xiaohashuId": "…", "noteTotal": 0, "fansTotal": "0" } ], "pageNo": 1, "totalCount": 1, "pageSize": 10, "totalPage": 1 }',
+        res: '{ "success": true, "data": [ { "userId": "…", "nickname": "…", "highlightNickname": "<strong>小红薯</strong>…", "avatar": "…", "lumenoteId": "…", "noteTotal": 0, "fansTotal": "0" } ], "pageNo": 1, "totalCount": 1, "pageSize": 10, "totalPage": 1 }',
         note: '搜索服务没有鉴权，前端通过本地代理直连 8092。',
       },
     ],
@@ -284,7 +284,7 @@ const GROUPS = [
         multipart: true,
         desc: '上传文件到阿里云 OSS',
         req: 'multipart/form-data，字段名：file',
-        res: '{ "success": true, "data": "https://deepsea-xiaohashu.oss-cn-hangzhou.aliyuncs.com/xxx.jpg" }',
+        res: '{ "success": true, "data": "https://deepsea-lumenote.oss-cn-hangzhou.aliyuncs.com/xxx.jpg" }',
         note: '返回可直接访问的 URL；笔记图片、头像、背景图、视频都复用此接口。',
       },
     ],
@@ -337,7 +337,7 @@ const GROUPS = [
         internal: true,
         method: 'GET',
         desc: '号段 ID（GET）',
-        req: 'GET /id/segment/get/xiaohashu_id',
+        req: 'GET /id/segment/get/lumenote_id',
         res: '"10001"',
         note: '号段模式，返回递增 ID。',
       },
@@ -404,7 +404,7 @@ const GAPS = [
   {
     title: '验证码没有测试通道',
     body:
-      '验证码只写入 Redis 并调用阿里云短信/打印日志，没有测试验证码接口。本地联调请查看 xiaohashu-auth 的日志，或手动从 Redis 读取。',
+      '验证码只写入 Redis 并调用阿里云短信/打印日志，没有测试验证码接口。本地联调请查看 lumenote-auth 的日志，或手动从 Redis 读取。',
   },
 ];
 

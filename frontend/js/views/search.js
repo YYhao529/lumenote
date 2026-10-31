@@ -240,7 +240,7 @@ export default {
         resultsEl.innerHTML = `${header}${emptyState({
           icon: 'users',
           title: `没有找到「${state.q}」相关的用户`,
-          desc: '可以尝试昵称的一部分，或者使用小哈书号搜索。',
+          desc: '可以尝试昵称的一部分，或者使用时光笔记号搜索。',
           actions: [
             { label: '搜索笔记', href: `#/search?q=${encodeURIComponent(state.q)}` },
             { label: '回到发现', href: '#/explore' },

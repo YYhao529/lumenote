@@ -2,7 +2,7 @@
 'use strict';
 
 /**
- * 小哈书 Web 开发服务器
+ * 时光笔记 Web 开发服务器
  *
  * - 托管 frontend 目录下的静态文件（HTML / CSS / 原生 ES Module）
  * - 同源代理后端接口，规避网关没有配置 CORS 的问题
@@ -305,7 +305,7 @@ function probeService(urlString) {
         path: '/',
         method: 'GET',
         timeout: 1500,
-        headers: { 'user-agent': 'xiaohashu-web-health-check' },
+        headers: { 'user-agent': 'lumenote-web-health-check' },
       },
       (res) => {
         res.resume();
@@ -410,7 +410,7 @@ server.on('error', (err) => {
 server.listen(PORT, HOST, () => {
   const line = '─'.repeat(62);
   console.log(`\n${color.dim(line)}`);
-  console.log(`${color.bold('  小哈书 Web')}  ${color.dim('HTML + CSS + 原生 JavaScript')}`);
+  console.log(`${color.bold('  时光笔记 Web')}  ${color.dim('HTML + CSS + 原生 JavaScript')}`);
   console.log(`  本地地址   ${color.cyan(`http://${HOST}:${PORT}`)}`);
   console.log(`${color.dim(line)}`);
   console.log(`  ${color.bold('代理规则')}`);

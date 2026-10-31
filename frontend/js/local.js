@@ -15,7 +15,7 @@ import {
   writeSessionJSON,
 } from './utils.js';
 
-const PREFIX = 'xhs:';
+const PREFIX = 'lumenote:';
 const RECENT_NOTES_KEY = `${PREFIX}recent-notes`;
 const RECENT_SEARCH_KEY = `${PREFIX}recent-searches`;
 const META_PREFIX = `${PREFIX}meta:`;

@@ -3,9 +3,9 @@
  * 只负责读写，不发起网络请求（避免循环依赖）。
  */
 
-const TOKEN_KEY = 'xhs:token';
-const PHONE_KEY = 'xhs:phone';
-const ME_KEY = 'xhs:me';
+const TOKEN_KEY = 'lumenote:token';
+const PHONE_KEY = 'lumenote:phone';
+const ME_KEY = 'lumenote:me';
 
 function readJSON(key) {
   try {

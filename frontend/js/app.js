@@ -14,7 +14,7 @@ import { navigate, onRouteChange, start } from './router.js';
 
 /* ------------------------------- 顶部登录态 ------------------------------- */
 
-const THEME_KEY = 'xhs:theme';
+const THEME_KEY = 'lumenote:theme';
 
 function getTheme() {
   try {
@@ -174,7 +174,7 @@ function bindHeaderSearch() {
 }
 
 function bindUnauthorized() {
-  window.addEventListener('xhs:unauthorized', (event) => {
+  window.addEventListener('lumenote:unauthorized', (event) => {
     const wasLoggedIn = auth.isLoggedIn;
     auth.clearSession();
 

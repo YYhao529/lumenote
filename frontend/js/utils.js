@@ -18,7 +18,7 @@ export function escapeHtml(value) {
   );
 }
 
-/** 本机 MinIO 的绝对地址前缀，例如 http://127.0.0.1:9000/deepsea-xiaohashu/xxx.mp4 */
+/** 本机 MinIO 的绝对地址前缀，例如 http://127.0.0.1:9000/deepsea-lumenote/xxx.mp4 */
 const LOCAL_MINIO_RE = /^https?:\/\/(?:127\.0\.0\.1|localhost):9000\//i;
 
 /** 仅放行 http(s)、blob 图片与 data:image，避免 javascript: 注入 */
@@ -126,7 +126,7 @@ export function relativeTime(value) {
 }
 
 export function hashHue(text) {
-  const str = String(text || '小哈书');
+  const str = String(text || '时光笔记');
   let hash = 0;
   for (let i = 0; i < str.length; i += 1) {
     hash = (hash * 31 + str.charCodeAt(i)) >>> 0;
@@ -136,7 +136,7 @@ export function hashHue(text) {
 }
 
 export function initials(name) {
-  const text = String(name || '小哈书').trim();
+  const text = String(name || '时光笔记').trim();
   if (!text) return '小';
   return text.slice(0, 1).toUpperCase();
 }
