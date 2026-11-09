@@ -41,6 +41,7 @@ import org.springframework.data.redis.core.RedisOperations;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.SessionCallback;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -62,6 +63,8 @@ public class UserServiceImpl implements UserService {
 
     @Autowired
     private UserDOMapper userDOMapper;
+    @Autowired
+    private PasswordEncoder passwordEncoder;
     @Autowired
     private OssRpcService ossRpcService;
     @Autowired
@@ -118,7 +121,7 @@ public class UserServiceImpl implements UserService {
             needUpdate = true;
         }
 
-        // 时光笔记号
+        // 拾光笔记号
         String lumenoteId = updateUserInfoReqVO.getLumenoteId();
         if (StringUtils.isNotBlank(lumenoteId)) {
             Preconditions.checkArgument(ParamUtils.checkLumenoteId(lumenoteId), ResponseCodeEnum.LUMENOTE_ID_VALID_FAIL.getErrorMessage());
@@ -197,7 +200,7 @@ public class UserServiceImpl implements UserService {
         }
 
         // 否则注册新用户
-        // RPC: 调用分布式 ID 生成服务生成时光笔记 ID
+        // RPC: 调用分布式 ID 生成服务生成拾光笔记 ID
         String lumenoteId = distributedIdGeneratorRpcService.getLumenoteId();
 
         // RPC: 调用分布式 ID 生成服务生成用户 ID
@@ -207,8 +210,8 @@ public class UserServiceImpl implements UserService {
         UserDO userDO = UserDO.builder()
                 .id(userId)
                 .phone(phone)
-                .lumenoteId(lumenoteId)   // 自动生成时光笔记号 ID
-                .nickname("小红薯" + lumenoteId)  // 自动生成昵称，如：小红薯10000
+                .lumenoteId(lumenoteId)   // 自动生成拾光笔记号 ID
+                .nickname("拾光笔记" + lumenoteId)  // 自动生成昵称，如：拾光笔记10000
                 .status(StatusEnum.ENABLE.getValue())   // 状态为启用
                 .createTime(LocalDateTime.now())
                 .updateTime(LocalDateTime.now())
@@ -229,6 +232,9 @@ public class UserServiceImpl implements UserService {
         userRoleRelDOMapper.insert(userRoleRelDO);
 
         RoleDO roleDO = roleDOMapper.selectByPrimaryKey(RoleConstants.COMMON_USER_ROLE_ID);
+        if (Objects.isNull(roleDO)) {
+            throw new BizException(ResponseCodeEnum.ROLE_NOT_FOUND);
+        }
 
         // 将该用户的角色 ID 存入 Redis 中，指定初始容量为 1，这样可以减少在扩容时的性能开销
         ArrayList<String> roles = new ArrayList<>(1);
@@ -255,29 +261,81 @@ public class UserServiceImpl implements UserService {
             throw new BizException(ResponseCodeEnum.USER_NOT_FOUND);
         }
 
-        // 构建返参
+        // 构建返参（只返回用户 ID，密码密文绝不出服务）
         FindUserByPhoneRspDTO findUserByPhoneRspDTO = FindUserByPhoneRspDTO.builder()
                 .id(userDO.getId())
-                .password(userDO.getPassword())
                 .build();
 
         return Response.success(findUserByPhoneRspDTO);
     }
 
     /**
-     * 修改密码
+     * 校验手机号 + 密码，匹配返回用户 ID，否则返回 null
+     */
+    @Override
+    public Response<Long> verifyPassword(VerifyPasswordReqDTO verifyPasswordReqDTO) {
+        if (StringUtils.isBlank(verifyPasswordReqDTO.getPassword())) {
+            return Response.success(null);
+        }
+
+        UserDO userDO = userDOMapper.selectByPhone(verifyPasswordReqDTO.getPhone());
+
+        // 用户不存在或未设置密码，统一返回 null，避免暴露「手机号是否已注册」
+        if (Objects.isNull(userDO) || StringUtils.isBlank(userDO.getPassword())) {
+            return Response.success(null);
+        }
+
+        boolean matched = passwordEncoder.matches(verifyPasswordReqDTO.getPassword(), userDO.getPassword());
+        return Response.success(matched ? userDO.getId() : null);
+    }
+
+    /**
+     * 按用户 ID 校验密码（修改密码前校验原密码）
+     */
+    @Override
+    public Response<Boolean> verifyPasswordByUserId(VerifyPasswordByUserIdReqDTO verifyPasswordByUserIdReqDTO) {
+        if (StringUtils.isBlank(verifyPasswordByUserIdReqDTO.getPassword())) {
+            return Response.success(false);
+        }
+
+        UserDO userDO = userDOMapper.selectByPrimaryKey(verifyPasswordByUserIdReqDTO.getUserId());
+
+        if (Objects.isNull(userDO) || StringUtils.isBlank(userDO.getPassword())) {
+            return Response.success(false);
+        }
+
+        return Response.success(passwordEncoder.matches(
+                verifyPasswordByUserIdReqDTO.getPassword(), userDO.getPassword()));
+    }
+
+    /**
+     * 修改密码（校验原密码，服务内部完成 BCrypt 加密）
      */
     @Override
     public Response<?> updatePassword(UpdateUserPasswordReqDTO updateUserPasswordReqDTO) {
-        // 拿到当前登录用户 ID
+        // 拿到当前登录用户 ID（由网关 / Feign 透传）
         Long userId = LoginUserContextHolder.getUserId();
+        if (Objects.isNull(userId)) {
+            throw new BizException(ResponseCodeEnum.USER_NOT_FOUND);
+        }
 
+        UserDO existingUser = userDOMapper.selectByPrimaryKey(userId);
+        if (Objects.isNull(existingUser)) {
+            throw new BizException(ResponseCodeEnum.USER_NOT_FOUND);
+        }
+
+        // 原密码校验：即使该接口被直接调用，也必须知道原密码
+        if (StringUtils.isBlank(existingUser.getPassword())
+                || !passwordEncoder.matches(updateUserPasswordReqDTO.getOldPassword(), existingUser.getPassword())) {
+            throw new BizException(ResponseCodeEnum.OLD_PASSWORD_ERROR);
+        }
+
+        // 新密码加密后入库
         UserDO userDO = UserDO.builder()
                 .id(userId)
-                .password(updateUserPasswordReqDTO.getEncodePassword())
+                .password(passwordEncoder.encode(updateUserPasswordReqDTO.getNewPassword()))
                 .updateTime(LocalDateTime.now())
                 .build();
-        // 更新密码
         userDOMapper.updateByPrimaryKeySelective(userDO);
 
         return Response.success();
@@ -307,14 +365,15 @@ public class UserServiceImpl implements UserService {
         if (StringUtils.isNotBlank(userInfoRedisValue)) {
             // 将存储的 Json 字符串转换成对象，并返回
             FindUserByIdRspDTO findUserByIdRspDTO = JsonUtils.parseObject(userInfoRedisValue, FindUserByIdRspDTO.class);
-            // 异步线程将用户信息存入本地缓存
-            threadPoolTaskExecutor.submit(() -> {
-                // 只有非空值才写入本地缓存
-                if (Objects.nonNull(findUserByIdRspDTO)) {
-                    LOCAL_CACHE.put(userId, findUserByIdRspDTO);
-                }
-            });
-            return Response.success(findUserByIdRspDTO);
+
+            if (Objects.nonNull(findUserByIdRspDTO)) {
+                // 异步线程将用户信息存入本地缓存
+                threadPoolTaskExecutor.submit(() -> LOCAL_CACHE.put(userId, findUserByIdRspDTO));
+                return Response.success(findUserByIdRspDTO);
+            }
+
+            // 命中 "null" 空值缓存：删除后回源数据库，避免用户刚创建时被旧空值挡住
+            redisTemplate.delete(userInfoRedisKey);
         }
 
         // 否则, 从数据库中查询
@@ -336,6 +395,7 @@ public class UserServiceImpl implements UserService {
         FindUserByIdRspDTO findUserByIdRspDTO = FindUserByIdRspDTO.builder()
                 .id(userDO.getId())
                 .nickname(userDO.getNickname())
+                .lumenoteId(userDO.getLumenoteId())
                 .avatar(userDO.getAvatar())
                 .introduction(userDO.getIntroduction())
                 .backgroundImg(userDO.getBackgroundImg())
@@ -376,10 +436,11 @@ public class UserServiceImpl implements UserService {
         // 返参
         List<FindUserByIdRspDTO> findUserByIdRspDTOS = Lists.newArrayList();
 
-        // 将过滤后的缓存集合，转换为 DTO 返参实体类
+        // 将过滤后的缓存集合，转换为 DTO 返参实体类（"null" 空值缓存解析后为 null，需要剔除）
         if (CollUtil.isNotEmpty(redisValues)) {
             findUserByIdRspDTOS = redisValues.stream()
                     .map(value -> JsonUtils.parseObject(String.valueOf(value), FindUserByIdRspDTO.class))
+                    .filter(Objects::nonNull)
                     .collect(Collectors.toList());
         }
 
@@ -417,6 +478,7 @@ public class UserServiceImpl implements UserService {
                     .map(userDO -> FindUserByIdRspDTO.builder()
                             .id(userDO.getId())
                             .nickname(userDO.getNickname())
+                            .lumenoteId(userDO.getLumenoteId())
                             .avatar(userDO.getAvatar())
                             .introduction(userDO.getIntroduction())
                             .backgroundImg(userDO.getBackgroundImg())

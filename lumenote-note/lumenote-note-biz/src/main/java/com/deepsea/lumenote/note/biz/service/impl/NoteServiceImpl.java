@@ -127,6 +127,10 @@ public class NoteServiceImpl implements NoteService {
 
         // 调用分布式 ID 生成服务，生成笔记 ID
         String snowflakeIdId = distributedIdGeneratorRpcService.getSnowflakeId();
+        // 话题（支持按话题名称关联，话题不存在时自动创建）
+        // 先解析话题：话题非法时直接失败，避免先写正文后留下孤儿内容
+        TopicDO topicDO = resolveTopic(publishNoteReqVO.getTopicId(), publishNoteReqVO.getTopicName());
+
         // 笔记内容 UUID
         String contentUuid = null;
 
@@ -147,9 +151,6 @@ public class NoteServiceImpl implements NoteService {
                 throw new BizException(ResponseCodeEnum.NOTE_PUBLISH_FAIL);
             }
         }
-
-        // 话题（支持按话题名称关联，话题不存在时自动创建）
-        TopicDO topicDO = resolveTopic(publishNoteReqVO.getTopicId(), publishNoteReqVO.getTopicName());
 
         // 发布者用户 ID
         Long creatorId = LoginUserContextHolder.getUserId();
@@ -176,35 +177,38 @@ public class NoteServiceImpl implements NoteService {
         try {
             // 笔记入库存储
             noteDOMapper.insert(noteDO);
-
-            // 构建消息体 DTO
-            NoteOperateMqDTO noteOperateMqDTO = NoteOperateMqDTO.builder()
-                    .noteId(Long.valueOf(snowflakeIdId))
-                    .creatorId(creatorId)
-                    .type(NoteOperateEnum.PUBLISH.getCode())    // 发布笔记
-                    .build();
-
-            // 发送消息到 MQ，通知计数服务更改笔记数统计
-            threadPoolTaskExecutor.submit(() -> {
-                try {
-                    rabbitTemplate.convertAndSend(MQConstants.COUNT_PUBLISH_NOTE_EXCHANGE, MQConstants.COUNT_PUBLISH_NOTE_ROUTING_KEY,
-                            JsonUtils.toJsonString(noteOperateMqDTO));
-                    log.info("==> 【笔记发布】MQ 发送成功");
-                } catch (Exception e) {
-                    log.error("==> 【笔记发布】MQ 发送异常: ", e);
-                }
-
-            });
         } catch (Exception e) {
-            log.error("==> 笔记存储失败", e);
+            log.error("==> 笔记存储失败, noteId: {}", snowflakeIdId, e);
 
-            // RPC: 笔记保存失败，则删除笔记内容
+            // RPC: 笔记保存失败，则删除已写入的笔记内容，避免产生孤儿正文
             if (StringUtils.isNotBlank(contentUuid)) {
                 keyValueRpcService.deleteNoteContent(contentUuid);
             }
+
+            // 入库失败必须让调用方感知，不能吞掉异常后返回成功
+            throw new BizException(ResponseCodeEnum.NOTE_PUBLISH_FAIL);
         }
 
-        return Response.success();
+        // 构建消息体 DTO
+        NoteOperateMqDTO noteOperateMqDTO = NoteOperateMqDTO.builder()
+                .noteId(Long.valueOf(snowflakeIdId))
+                .creatorId(creatorId)
+                .type(NoteOperateEnum.PUBLISH.getCode())    // 发布笔记
+                .build();
+
+        // 发货成功后再异步通知计数服务，MQ 失败不影响发布结果（可由数据对齐任务修正）
+        threadPoolTaskExecutor.submit(() -> {
+            try {
+                rabbitTemplate.convertAndSend(MQConstants.COUNT_PUBLISH_NOTE_EXCHANGE,
+                        MQConstants.COUNT_PUBLISH_NOTE_ROUTING_KEY, JsonUtils.toJsonString(noteOperateMqDTO));
+                log.info("==> 【笔记发布】MQ 发送成功");
+            } catch (Exception e) {
+                log.error("==> 【笔记发布】MQ 发送异常: ", e);
+            }
+        });
+
+        // 返回笔记 ID：前端发布后要跳详情页，且后续点赞/收藏都依赖它
+        return Response.success(Long.valueOf(snowflakeIdId));
     }
 
     /**
@@ -223,10 +227,14 @@ public class NoteServiceImpl implements NoteService {
         String findNoteDetailRspVOStrLocalCache = LOCAL_CACHE.getIfPresent(noteId);
         if (StringUtils.isNotBlank(findNoteDetailRspVOStrLocalCache)) {
             FindNoteDetailRspVO findNoteDetailRspVO = JsonUtils.parseObject(findNoteDetailRspVOStrLocalCache, FindNoteDetailRspVO.class);
-            log.info("==> 命中了本地缓存；{}", findNoteDetailRspVO);
-            // 可见性校验
-            checkNoteVisibleFromVO(userId, findNoteDetailRspVO);
-            return Response.success(findNoteDetailRspVO);
+            if (Objects.nonNull(findNoteDetailRspVO)) {
+                log.info("==> 命中了本地缓存；{}", findNoteDetailRspVO);
+                // 可见性校验
+                checkNoteVisibleFromVO(userId, findNoteDetailRspVO);
+                return Response.success(findNoteDetailRspVO);
+            }
+            // 本地缓存里是 "null" 空值标记，清掉后继续走 Redis / DB，避免把空值当成正常数据返回
+            LOCAL_CACHE.invalidate(noteId);
         }
 
         // 从 Redis 缓存中获取
@@ -236,11 +244,17 @@ public class NoteServiceImpl implements NoteService {
         // 若缓存中有该笔记的数据，则直接返回
         if (StringUtils.isNotBlank(noteDetailJson)) {
             FindNoteDetailRspVO findNoteDetailRspVO = JsonUtils.parseObject(noteDetailJson, FindNoteDetailRspVO.class);
+
+            // 命中空值缓存（"null"）时，说明该笔记此前确实不存在，保持与数据库一致的语义返回业务异常，
+            // 而不是 Response.success(null)
+            if (Objects.isNull(findNoteDetailRspVO)) {
+                throw new BizException(ResponseCodeEnum.NOTE_NOT_FOUND);
+            }
+
             // 异步线程中将用户信息存入本地缓存
             threadPoolTaskExecutor.submit(() -> {
                 // 写入本地缓存
-                LOCAL_CACHE.put(noteId,
-                        Objects.isNull(findNoteDetailRspVO) ? "null" : noteDetailJson);
+                LOCAL_CACHE.put(noteId, noteDetailJson);
             });
             // 可见性校验
             checkNoteVisibleFromVO(userId, findNoteDetailRspVO);
@@ -277,7 +291,17 @@ public class NoteServiceImpl implements NoteService {
         CompletableFuture<String> contentResultFuture = CompletableFuture.completedFuture(null);
         if (Objects.equals(noteDO.getIsContentEmpty(), Boolean.FALSE)) {
             contentResultFuture = CompletableFuture
-                    .supplyAsync(() -> keyValueRpcService.findNoteContent(noteDO.getContentUuid()), threadPoolTaskExecutor);
+                    .supplyAsync(() -> {
+                        try {
+                            return keyValueRpcService.findNoteContent(noteDO.getContentUuid());
+                        } catch (Exception e) {
+                            // kv 抖动不该让整个详情接口失败；这里吞掉异常返回 null，
+                            // 由下面「正文缺失不写缓存」的逻辑兜底，避免脏缓存
+                            log.warn("==> 获取笔记正文失败, noteId: {}, contentUuid: {}, error: {}",
+                                    noteId, noteDO.getContentUuid(), e.getMessage());
+                            return null;
+                        }
+                    }, threadPoolTaskExecutor);
         }
 
         CompletableFuture<String> finalContentResultFuture = contentResultFuture;
@@ -310,8 +334,8 @@ public class NoteServiceImpl implements NoteService {
                             .topicId(noteDO.getTopicId())
                             .topicName(noteDO.getTopicName())
                             .creatorId(creatorId)
-                            .creatorName(findUserByIdRspDTO.getNickname())
-                            .avatar(findUserByIdRspDTO.getAvatar())
+                            .creatorName(Objects.nonNull(findUserByIdRspDTO) ? findUserByIdRspDTO.getNickname() : null)
+                            .avatar(Objects.nonNull(findUserByIdRspDTO) ? findUserByIdRspDTO.getAvatar() : null)
                             .videoUri(noteDO.getVideoUri())
                             .updateTime(noteDO.getUpdateTime())
                             .visible(visible)
@@ -321,13 +345,24 @@ public class NoteServiceImpl implements NoteService {
         // 获取拼装后的 FindNoteDetailRspVO
         FindNoteDetailRspVO findNoteDetailRspVO = resultFuture.get();
 
-        // 异步线程中将笔记详情存入 Redis
-        threadPoolTaskExecutor.submit(() -> {
-            // 过期时间（保底1天 + 随机秒数，将缓存过期时间打散，防止同一时间大量缓存失效，导致数据库压力太大）
-            long timeToLive = 60 * 60 * 24 + RandomUtil.randomInt(60 * 60 * 24);
-            redisTemplate.opsForValue().set(noteDetailRedisKey,
-                    JsonUtils.toJsonString(findNoteDetailRspVO), timeToLive, TimeUnit.SECONDS);
-        });
+        // 笔记本该有正文（有 contentUuid）但这次没取到，说明是 kv 调用抖动。
+        // 这种情况不能写缓存，否则 TTL（最长 2 天）内用户一直看不到正文。
+        boolean contentMissing = Objects.equals(noteDO.getIsContentEmpty(), Boolean.FALSE)
+                && StringUtils.isNotBlank(noteDO.getContentUuid())
+                && StringUtils.isBlank(findNoteDetailRspVO.getContent());
+
+        if (contentMissing) {
+            log.warn("==> 正文缺失，跳过本次详情缓存, noteId: {}, contentUuid: {}",
+                    noteId, noteDO.getContentUuid());
+        } else {
+            // 异步线程中将笔记详情存入 Redis
+            threadPoolTaskExecutor.submit(() -> {
+                // 过期时间（保底1天 + 随机秒数，将缓存过期时间打散，防止同一时间大量缓存失效，导致数据库压力太大）
+                long timeToLive = 60 * 60 * 24 + RandomUtil.randomInt(60 * 60 * 24);
+                redisTemplate.opsForValue().set(noteDetailRedisKey,
+                        JsonUtils.toJsonString(findNoteDetailRspVO), timeToLive, TimeUnit.SECONDS);
+            });
+        }
 
         return Response.success(findNoteDetailRspVO);
     }
@@ -615,12 +650,13 @@ public class NoteServiceImpl implements NoteService {
         // 笔记 ID
         Long noteId = likeNoteReqVO.getId();
 
-        // 1. 校验被点赞的笔记是否存在，若存在，则获取发布者用户 ID
-        Long creatorId = checkNoteIsExistAndGetCreatorId(noteId);
-
-        // 2. 判断目标笔记，是否已经点赞过
         // 当前登录用户ID
         Long userId = LoginUserContextHolder.getUserId();
+
+        // 1. 校验被点赞的笔记是否存在且对当前用户可见，若存在，则获取发布者用户 ID
+        Long creatorId = checkNoteIsExistAndGetCreatorId(noteId, userId);
+
+        // 2. 判断目标笔记，是否已经点赞过
 
         // 布隆过滤器 Key
         String bloomUserNoteLikeListKey = RedisKeyConstants.buildBloomUserNoteLikeListKey(userId);
@@ -755,12 +791,13 @@ public class NoteServiceImpl implements NoteService {
     public Response<?> unlikeNote(UnlikeNoteReqVO unlikeNoteReqVO) {
         Long noteId = unlikeNoteReqVO.getId();
 
-        // 1. 校验笔记是否真实存在，若存在，则获取发布者用户 ID
-        Long creatorId = checkNoteIsExistAndGetCreatorId(noteId);
-
-        // 2. 校验笔记是否被点赞过
         // 当前登录用户 ID
         Long userId = LoginUserContextHolder.getUserId();
+
+        // 1. 校验笔记是否真实存在且对当前用户可见，若存在，则获取发布者用户 ID
+        Long creatorId = checkNoteIsExistAndGetCreatorId(noteId, userId);
+
+        // 2. 校验笔记是否被点赞过
 
         // 布隆过滤器 Key
         String bloomUserNoteLikeListKey = RedisKeyConstants.buildBloomUserNoteLikeListKey(userId);
@@ -839,8 +876,8 @@ public class NoteServiceImpl implements NoteService {
         // 当前登录用户 ID
         Long userId = LoginUserContextHolder.getUserId();
 
-        // 1. 校验笔记是否真实存在，若存在，则获取发布者用户 ID
-        Long creatorId = checkNoteIsExistAndGetCreatorId(noteId);
+        // 1. 校验笔记是否真实存在且对当前用户可见，若存在，则获取发布者用户 ID
+        Long creatorId = checkNoteIsExistAndGetCreatorId(noteId, userId);
 
         // 2. 判断目标笔记，是否已经收藏过
         // 构建布隆过滤器 Key
@@ -985,8 +1022,8 @@ public class NoteServiceImpl implements NoteService {
         // 当前登录用户 ID
         Long userId = LoginUserContextHolder.getUserId();
 
-        // 1. 校验笔记是否真实存在，若存在，则获取发布者用户 ID
-        Long creatorId = checkNoteIsExistAndGetCreatorId(noteId);
+        // 1. 校验笔记是否真实存在且对当前用户可见，若存在，则获取发布者用户 ID
+        Long creatorId = checkNoteIsExistAndGetCreatorId(noteId, userId);
 
         // 2. 校验笔记是否被收藏过
         // 构建用户笔记收藏布隆过滤器 Key
@@ -1187,9 +1224,9 @@ public class NoteServiceImpl implements NoteService {
     }
 
     /**
-     * 校验笔记是否存在，若存在，则获取笔记的发布者用户 ID
+     * 校验笔记是否存在且对当前用户可见，若可访问则返回笔记发布者用户 ID
      */
-    private Long checkNoteIsExistAndGetCreatorId(Long noteId) {
+    private Long checkNoteIsExistAndGetCreatorId(Long noteId, Long userId) {
         // 先从本地缓存中查询
         String findNoteDetailRspVOStrLocalCache = LOCAL_CACHE.getIfPresent(noteId);
         // 解析 Json 字符串为 VO 对象
@@ -1203,27 +1240,30 @@ public class NoteServiceImpl implements NoteService {
 
             // 解析 Json 字符串为 VO 对象
             findNoteDetailRspVO = JsonUtils.parseObject(noteDetailJson, FindNoteDetailRspVO.class);
-
-            // 如果缓存都失效了，则从数据库中查询
-            if (Objects.isNull(findNoteDetailRspVO)) {
-                // 笔记发布者用户 ID
-                Long creatorId = noteDOMapper.selectCreatorIdByNoteId(noteId);
-
-                // 若数据库中也不存在，提示用户
-                if (Objects.isNull(creatorId)) {
-                    throw new BizException(ResponseCodeEnum.NOTE_NOT_FOUND);
-                }
-
-                // 如果数据存在，则异步同步一下缓存
-                threadPoolTaskExecutor.submit(() -> {
-                    FindNoteDetailReqVO findNoteDetailReqVO = FindNoteDetailReqVO.builder().id(noteId).build();
-                    findNoteDetail(findNoteDetailReqVO);
-                });
-                return creatorId;
-            }
         }
 
-        return findNoteDetailRspVO.getCreatorId();
+        if (Objects.nonNull(findNoteDetailRspVO)) {
+            // 点赞/收藏同样要遵守笔记可见性：私密笔记只有作者本人能互动
+            checkNoteVisible(findNoteDetailRspVO.getVisible(), userId, findNoteDetailRspVO.getCreatorId());
+            return findNoteDetailRspVO.getCreatorId();
+        }
+
+        // 缓存都失效了，则从数据库中查询（selectByPrimaryKey 已过滤 status=1，可同时校验存在性）
+        NoteDO noteDO = noteDOMapper.selectByPrimaryKey(noteId);
+
+        // 若数据库中也不存在，提示用户
+        if (Objects.isNull(noteDO)) {
+            throw new BizException(ResponseCodeEnum.NOTE_NOT_FOUND);
+        }
+
+        // 可见性校验
+        checkNoteVisible(noteDO.getVisible(), userId, noteDO.getCreatorId());
+
+        // 如果数据存在，则异步同步一下缓存
+        threadPoolTaskExecutor.submit(() -> findNoteDetail(
+                FindNoteDetailReqVO.builder().id(noteId).build()));
+
+        return noteDO.getCreatorId();
     }
 
     /**
@@ -1258,17 +1298,17 @@ public class NoteServiceImpl implements NoteService {
 
     /**
      * 发送延迟删除 Redis 缓存失效消息
+     *
+     * 消息先进入带 1 秒 TTL 的延迟队列，过期后死信到真正的 Redis 缓存删除队列，
+     * 这样不依赖 RabbitMQ 延迟插件，也能避开「删除缓存后并发读又把旧值写回」的竞态。
      */
     private void sendRedisCacheInvalidateMessage(Long noteId) {
         try {
             rabbitTemplate.convertAndSend(MQConstants.NOTE_CACHE_INVALIDATE_EXCHANGE,
-                    MQConstants.DELETE_NOTE_REDIS_CACHE_ROUTING_KEY, noteId, message -> {
-                        message.getMessageProperties().setDelay(1000);
-                        return message;
-                    });
-            log.info("==> MQ：延时删除 Redis 笔记缓存消息发送成功, 笔记 ID: {}", noteId);
+                    MQConstants.DELETE_NOTE_REDIS_CACHE_DELAY_ROUTING_KEY, noteId);
+            log.info("==> MQ：延迟删除 Redis 笔记缓存消息发送成功, 笔记 ID: {}", noteId);
         } catch (Exception e) {
-            log.error("==> MQ：延时删除 Redis 笔记缓存消息发送失败, 笔记 ID: {}", noteId, e);
+            log.error("==> MQ：延迟删除 Redis 笔记缓存消息发送失败, 笔记 ID: {}", noteId, e);
         }
     }
 
@@ -1380,13 +1420,13 @@ public class NoteServiceImpl implements NoteService {
         // 查询总数
         int total = noteDOMapper.selectCountByCreatorId(userId, includePrivate);
         if (total <= 0) {
-            return PageResponse.success(Collections.emptyList(), pageNo, total);
+            return PageResponse.success(Collections.emptyList(), pageNo, total, limit);
         }
 
         // 计算分页
         long start = PageResponse.getOffset(pageNo, limit);
         if (pageNo > PageResponse.getTotalPage(total, limit)) {
-            return PageResponse.success(Collections.emptyList(), pageNo, total);
+            return PageResponse.success(Collections.emptyList(), pageNo, total, limit);
         }
 
         // 查询当前页笔记
@@ -1394,7 +1434,7 @@ public class NoteServiceImpl implements NoteService {
 
         // 组装返参
         List<FindNoteListItemRspVO> items = buildNoteListItems(noteDOS, Collections.emptyMap());
-        return PageResponse.success(items, pageNo, total);
+        return PageResponse.success(items, pageNo, total, limit);
     }
 
     /**
@@ -1410,19 +1450,19 @@ public class NoteServiceImpl implements NoteService {
         // 查询总数（不含已删除、已取消收藏、他人私密的笔记）
         int total = noteCollectionDOMapper.selectCountByUserId(userId, currentUserId);
         if (total <= 0) {
-            return PageResponse.success(Collections.emptyList(), pageNo, total);
+            return PageResponse.success(Collections.emptyList(), pageNo, total, limit);
         }
 
         // 计算分页
         long start = PageResponse.getOffset(pageNo, limit);
         if (pageNo > PageResponse.getTotalPage(total, limit)) {
-            return PageResponse.success(Collections.emptyList(), pageNo, total);
+            return PageResponse.success(Collections.emptyList(), pageNo, total, limit);
         }
 
         // 查询当前页收藏记录
         List<NoteCollectionDO> noteCollectionDOS = noteCollectionDOMapper.selectPageByUserId(userId, currentUserId, start, limit);
         if (CollUtil.isEmpty(noteCollectionDOS)) {
-            return PageResponse.success(Collections.emptyList(), pageNo, total);
+            return PageResponse.success(Collections.emptyList(), pageNo, total, limit);
         }
 
         // 保持收藏时间顺序，并记录收藏时间
@@ -1435,7 +1475,7 @@ public class NoteServiceImpl implements NoteService {
 
         List<NoteDO> noteDOS = selectNotesByIdsInOrder(noteIds);
         List<FindNoteListItemRspVO> items = buildNoteListItems(noteDOS, actionTimeMap);
-        return PageResponse.success(items, pageNo, total);
+        return PageResponse.success(items, pageNo, total, limit);
     }
 
     /**
@@ -1451,19 +1491,19 @@ public class NoteServiceImpl implements NoteService {
         // 查询总数（不含已删除、已取消点赞、他人私密的笔记）
         int total = noteLikeDOMapper.selectCountByUserId(userId, currentUserId);
         if (total <= 0) {
-            return PageResponse.success(Collections.emptyList(), pageNo, total);
+            return PageResponse.success(Collections.emptyList(), pageNo, total, limit);
         }
 
         // 计算分页
         long start = PageResponse.getOffset(pageNo, limit);
         if (pageNo > PageResponse.getTotalPage(total, limit)) {
-            return PageResponse.success(Collections.emptyList(), pageNo, total);
+            return PageResponse.success(Collections.emptyList(), pageNo, total, limit);
         }
 
         // 查询当前页点赞记录
         List<NoteLikeDO> noteLikeDOS = noteLikeDOMapper.selectPageByUserId(userId, currentUserId, start, limit);
         if (CollUtil.isEmpty(noteLikeDOS)) {
-            return PageResponse.success(Collections.emptyList(), pageNo, total);
+            return PageResponse.success(Collections.emptyList(), pageNo, total, limit);
         }
 
         // 保持点赞时间顺序，并记录点赞时间
@@ -1476,7 +1516,7 @@ public class NoteServiceImpl implements NoteService {
 
         List<NoteDO> noteDOS = selectNotesByIdsInOrder(noteIds);
         List<FindNoteListItemRspVO> items = buildNoteListItems(noteDOS, actionTimeMap);
-        return PageResponse.success(items, pageNo, total);
+        return PageResponse.success(items, pageNo, total, limit);
     }
 
     /**

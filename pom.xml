@@ -11,7 +11,7 @@
     <!-- 项目名称 -->
     <name>${project.artifactId}</name>
     <!-- 项目描述 -->
-    <description>时光笔记（仿小红书），基于 Spring Cloud Alibaba 微服务架构</description>
+    <description>拾光笔记（仿小红书），基于 Spring Cloud Alibaba 微服务架构</description>
 
     <!-- 多模块项目需要配置打包方式为 pom -->
     <packaging>pom</packaging>
@@ -42,6 +42,7 @@
         <module>lumenote-data-align</module>
         <!-- 搜索服务 -->
         <module>lumenote-search</module>
+        <module>lumenote-aigc</module>
     </modules>
 
     <properties>
@@ -59,14 +60,20 @@
         <flatten-maven-plugin.version>1.5.0</flatten-maven-plugin.version>
 
         <!-- 依赖包版本号 -->
-        <spring-boot.version>3.0.2</spring-boot.version>
-        <spring-cloud-alibaba.version>2022.0.0.0</spring-cloud-alibaba.version>
-        <spring-cloud.version>2022.0.0</spring-cloud.version>
-        <lombok.version>1.18.30</lombok.version>
-        <jackson.version>2.16.1</jackson.version>
+        <!-- Boot 3.4.0 ↔ Spring Cloud 2024.0.0（官方对应关系）。
+             Spring Cloud Alibaba 没有 2024.0 线：2023.0.3.4 官方对应 Spring Cloud 2023.0，
+             在 2024.0 上属"跨一个小版本"使用，本项目实测可用。 -->
+        <spring-boot.version>3.4.0</spring-boot.version>
+        <spring-cloud-alibaba.version>2023.0.3.4</spring-cloud-alibaba.version>
+        <spring-cloud.version>2024.0.0</spring-cloud.version>
+        <lombok.version>1.18.36</lombok.version>
+        <jackson.version>2.18.2</jackson.version>
         <mysql-connector-java.version>8.0.29</mysql-connector-java.version>
-        <druid.version>1.2.23</druid.version>
-        <sa-token.version>1.38.0</sa-token.version>
+        <druid.version>1.2.24</druid.version>
+        <sa-token.version>1.39.0</sa-token.version>
+        <!-- MyBatis starter 走独立版本线（3.0.x 对应 Boot 3.x）。
+             原来它被误绑成 ${spring-boot.version}，升 Boot 后会变成 3.4.0（不存在的版本） -->
+        <mybatis-spring-boot.version>3.0.4</mybatis-spring-boot.version>
         <guava.version>33.0.0-jre</guava.version>
         <hutool.version>5.8.26</hutool.version>
         <commons-lang3.version>3.12.0</commons-lang3.version>
@@ -84,6 +91,7 @@
         <xxl-job.version>2.4.1</xxl-job.version>
         <elasticsearch.version>7.3.0</elasticsearch.version>
         <canal.version>1.1.7</canal.version>
+        <spring-ai.version>1.0.0</spring-ai.version>
     </properties>
 
     <dependencyManagement>
@@ -153,7 +161,7 @@
             <dependency>
                 <groupId>org.mybatis.spring.boot</groupId>
                 <artifactId>mybatis-spring-boot-starter</artifactId>
-                <version>${spring-boot.version}</version>
+                <version>${mybatis-spring-boot.version}</version>
             </dependency>
 
             <!-- Mysql 驱动 -->
@@ -287,6 +295,12 @@
                 <artifactId>feign-form</artifactId>
                 <version>${feign-form.version}</version>
             </dependency>
+            <!-- Spring Cloud 2024 的 BOM 不再管理 feign-form-spring，需要显式给版本 -->
+            <dependency>
+                <groupId>io.github.openfeign.form</groupId>
+                <artifactId>feign-form-spring</artifactId>
+                <version>${feign-form.version}</version>
+            </dependency>
 
             <dependency>
                 <groupId>com.deepsea</groupId>
@@ -397,6 +411,11 @@
                         <source>${java.version}</source>
                         <target>${java.version}</target>
                         <encoding>${project.build.sourceEncoding}</encoding>
+                        <!-- Spring Framework 6.2 移除了基于字节码的参数名发现（LocalVariableTable），
+                             不加 -parameters 时 @Bean 方法/构造器里"按参数名注入"全部失效，
+                             多个同类型 Bean（比如 21 个 Queue）会直接报 no unique bean。
+                             Spring Boot 官方父 pom 默认就开着它，这里必须显式加上。 -->
+                        <parameters>true</parameters>
                         <annotationProcessorPaths>
                             <path>
                                 <groupId>org.projectlombok</groupId>

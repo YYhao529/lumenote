@@ -2,7 +2,7 @@
   "name": "lumenote-web",
   "version": "1.0.0",
   "private": true,
-  "description": "时光笔记 Web 前端（HTML + CSS + 原生 JavaScript），基于 Spring Cloud Alibaba 微服务接口",
+  "description": "拾光笔记 Web 前端（HTML + CSS + 原生 JavaScript），基于 Spring Cloud Alibaba 微服务接口",
   "type": "commonjs",
   "scripts": {
     "start": "node server.js",

@@ -1,0 +1,35 @@
+name: lumenote-nacos
+
+services:
+  nacos:
+    image: nacos/nacos-server:${NACOS_VERSION:-v2.4.3}
+    container_name: nacos
+    restart: unless-stopped
+    ports:
+      - "${NACOS_HTTP_PORT:-8848}:8848"   # 控制台 / OpenAPI
+      - "9848:9848"                        # 2.x 客户端 gRPC（= 8848 + 1000，必须暴露）
+      - "9849:9849"                        # 2.x 服务端间 gRPC（= 8848 + 1001）
+    environment:
+      MODE: standalone
+      SPRING_DATASOURCE_PLATFORM: mysql
+      MYSQL_SERVICE_HOST: ${MYSQL_HOST:-host.docker.internal}
+      MYSQL_SERVICE_PORT: ${MYSQL_PORT:-3306}
+      MYSQL_SERVICE_DB_NAME: ${NACOS_DB:-nacos_config}
+      MYSQL_SERVICE_USER: ${MYSQL_USER:-root}
+      MYSQL_SERVICE_PASSWORD: ${MYSQL_PASSWORD:?请在 .env 或 mysql8/.env 里提供 MYSQL_PASSWORD}
+      # MySQL 8 + useSSL=false 必须带 allowPublicKeyRetrieval，否则连接报 Public Key Retrieval is not allowed
+      MYSQL_SERVICE_DB_PARAM: "characterEncoding=utf8&connectTimeout=1000&socketTimeout=3000&autoReconnect=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai"
+      NACOS_AUTH_ENABLE: ${NACOS_AUTH_ENABLE:-false}
+      # 关键：Nacos 2.x 会把自己的地址告诉客户端（/nacos/v1/core/cluster/nodes），
+      # 默认在容器里自检成 172.x 内网 IP；客户端拿它 +1000 当 gRPC 地址，外部必然连不上。
+      # 这里显式公告宿主机 IP。换网络/换机器时改 .env 的 NACOS_SERVER_IP。
+      NACOS_SERVER_IP: ${NACOS_SERVER_IP:-192.168.100.111}
+      TZ: Asia/Shanghai
+      JVM_XMS: 512m
+      JVM_XMX: 512m
+    extra_hosts:
+      # 让容器能用 host.docker.internal 回连宿主机（Docker 20.10+）
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ${NACOS_LOG_DIR:-/opt/lumenote/nacos/logs}:/home/nacos/logs
+      - ${NACOS_DATA_DIR:-/opt/lumenote/nacos/data}:/home/nacos/data

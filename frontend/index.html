@@ -3,13 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#ff2442">
-  <meta name="description" content="时光笔记 —— 记录生活，发现同好。">
-  <title>时光笔记 · 发现你的热爱</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='18' fill='%23ff2442'/%3E%3Cpath d='M32 47s-14-8.6-14-18a8 8 0 0 1 14-5 8 8 0 0 1 14 5c0 9.4-14 18-14 18z' fill='white'/%3E%3C/svg%3E">
+  <meta name="theme-color" content="#4a5cf5">
+  <meta name="description" content="拾光笔记 —— 记录生活，发现同好。">
+  <title>拾光笔记 · 发现你的热爱</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop stop-color='%238ea1ff'/%3E%3Cstop offset='.5' stop-color='%234a5cf5'/%3E%3Cstop offset='1' stop-color='%238b5cf6'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='18' fill='url(%23g)'/%3E%3Ccircle cx='32' cy='27' r='11' fill='white' opacity='.95'/%3E%3Cpath d='M11 45h42' stroke='white' stroke-width='5' stroke-linecap='round' opacity='.9'/%3E%3Cpath d='M21 55h22' stroke='white' stroke-width='5' stroke-linecap='round' opacity='.5'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="./css/base.css">
   <link rel="stylesheet" href="./css/components.css">
   <link rel="stylesheet" href="./css/pages.css">
+  <link rel="stylesheet" href="./css/theme.css">
+  <link rel="stylesheet" href="./css/assistant.css">
   <script>
     // 尽早应用已保存的主题，避免深色模式首屏闪白
     try {
@@ -26,9 +28,24 @@
 
   <header class="site-header">
     <div class="header-inner">
-      <a class="brand" href="#/explore" aria-label="时光笔记首页">
-        <span class="brand-mark" aria-hidden="true">小</span>
-        <span class="brand-name">时光笔记</span>
+      <a class="brand" href="#/explore" aria-label="拾光笔记首页">
+        <span class="brand-mark" aria-hidden="true">
+          <!-- 标记：拾起的一束光（日出 + 笔记页脚线），不再使用「小」字 -->
+          <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="brandMarkGrad" x1="4" y1="2" x2="36" y2="38" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#8ea1ff"/>
+                <stop offset="0.52" stop-color="#4a5cf5"/>
+                <stop offset="1" stop-color="#8b5cf6"/>
+              </linearGradient>
+            </defs>
+            <rect width="40" height="40" rx="12" fill="url(#brandMarkGrad)"/>
+            <circle cx="20" cy="16.5" r="6.8" fill="#fff" fill-opacity="0.96"/>
+            <path d="M7 27.5h26" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-opacity="0.92"/>
+            <path d="M13 33h14" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-opacity="0.5"/>
+          </svg>
+        </span>
+        <span class="brand-name">拾光笔记</span>
       </a>
 
       <form class="header-search" id="header-search" role="search" autocomplete="off">
@@ -42,6 +59,7 @@
       <nav class="header-nav" aria-label="主导航">
         <a class="nav-link" href="#/explore" data-nav="explore">发现</a>
         <a class="nav-link" href="#/search" data-nav="search">搜索</a>
+        <a class="nav-link nav-assistant" href="#/assistant" data-nav="assistant">小拾助手</a>
         <a class="btn btn-primary btn-sm nav-publish" href="#/publish" data-nav="publish">发布笔记</a>
         <details class="header-menu" id="header-menu">
           <summary aria-label="打开导航菜单">
@@ -50,6 +68,7 @@
           <div class="header-menu-panel">
             <a href="#/explore" data-nav="explore">发现</a>
             <a href="#/search" data-nav="search">搜索</a>
+            <a href="#/assistant" data-nav="assistant">小拾助手</a>
             <a href="#/publish" data-nav="publish">发布笔记</a>
             <a href="#/me" data-nav="me">我的主页</a>
           </div>
@@ -63,7 +82,7 @@
 
   <footer class="site-footer">
     <div class="footer-inner">
-      <p>© 2026 时光笔记 · 记录你的生活灵感</p>
+      <p>© 2026 拾光笔记 · 记录你的生活灵感</p>
     </div>
   </footer>
 
@@ -71,7 +90,7 @@
   <div id="dialog-root"></div>
 
   <noscript>
-    <div class="noscript">时光笔记 Web 需要启用 JavaScript 才能运行。</div>
+    <div class="noscript">拾光笔记 Web 需要启用 JavaScript 才能运行。</div>
   </noscript>
 
   <script type="module" src="./js/app.js"></script>

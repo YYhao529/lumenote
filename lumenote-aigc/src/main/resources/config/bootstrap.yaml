@@ -1,0 +1,22 @@
+spring:
+  application:
+    name: lumenote-aigc # 应用名称
+  profiles:
+    active: dev # 默认激活 dev 本地开发环境
+  cloud:
+    nacos:
+      # 引入 nacos-config 依赖后，这里必须显式配 config 段：
+      # 否则配置中心会用默认的 127.0.0.1:8848（gRPC 为 127.0.0.1:9848），
+      # 启动时直接 Connection refused，服务根本起不来。
+      config:
+        server-addr: http://192.168.100.111:8848 # 指定 Nacos 配置中心的服务器地址
+        prefix: ${spring.application.name} # DataId 前缀，用应用名（= lumenote-aigc-dev.yaml）
+        group: DEFAULT_GROUP # 所属组
+        namespace: lumenote # 命名空间
+        file-extension: yaml # 配置文件格式
+        refresh-enabled: true # 是否开启动态刷新
+      discovery:
+        enabled: true # 启用服务发现
+        group: DEFAULT_GROUP # 所属组
+        namespace: lumenote # 命名空间
+        server-addr: 192.168.100.111:8848 # 指定 Nacos 注册中心的服务器地址

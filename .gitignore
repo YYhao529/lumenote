@@ -42,5 +42,17 @@ build/
 ### Logs ###
 logs/
 **/logs/
+*.log
+hs_err_pid*
+*.hprof
 
 **/.flattened-pom.xml
+
+### Local build / env ###
+.build/
+.env
+.env.*
+!deploy/**/.env.example
+
+### Local test artifacts ###
+.test/

@@ -275,9 +275,9 @@ export default {
               </a>
               <div class="author-name">
                 <a href="#/user/${encodeURIComponent(String(note.creatorId))}"><strong>${escapeHtml(
-        note.creatorName || '时光笔记用户'
+        note.creatorName || '拾光笔记用户'
       )}</strong></a>
-                <span>时光笔记创作者</span>
+                <span>拾光笔记创作者</span>
               </div>
               ${
                 !isOwner()

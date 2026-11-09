@@ -2,10 +2,27 @@ server:
   port: 8000 # 指定启动端口
 spring:
   codec:
-    # 上传头像/背景图的 multipart 请求经过网关时的缓冲上限
-    max-in-memory-size: 20MB
+    # 上传头像/背景图/视频的 multipart 请求经过网关时的缓冲上限
+    max-in-memory-size: 210MB
   cloud:
     gateway:
+      # 开发环境前端（5180）与网关（8000）不同源，统一在这里放开 CORS
+      globalcors:
+        add-to-simple-url-handler-mapping: true
+        cors-configurations:
+          '[/**]':
+            allowedOriginPatterns:
+              - "http://127.0.0.1:5180"
+              - "http://localhost:5180"
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - OPTIONS
+            allowedHeaders: "*"
+            allowCredentials: true
+            maxAge: 3600
       routes:
         - id: auth
           uri: lb://lumenote-auth
@@ -13,8 +30,8 @@ spring:
             - Path=/auth/**
           filters:
             - StripPrefix=1
-        # 注意：user / note / relation 三个服务的控制器自带类级前缀
-        # （@RequestMapping("/user")、"/note"、"/relation"），
+        # 注意：user / note / relation / search / count / file 的控制器自带类级前缀
+        # （@RequestMapping("/user")、"/note"、"/relation"、"/search"、"/count"、"/file"），
         # 所以这里不能再 StripPrefix，否则 /user/findByPhone 会被转发成 /findByPhone 而 404。
         # 只有 auth 服务的控制器没有类级前缀（/login、/logout），才需要 StripPrefix=1。
         - id: user
@@ -29,12 +46,29 @@ spring:
           uri: lb://lumenote-user-relation
           predicates:
             - Path=/relation/**
+        - id: search
+          uri: lb://lumenote-search
+          predicates:
+            - Path=/search/**
+        - id: count
+          uri: lb://lumenote-count
+          predicates:
+            - Path=/count/**
+        - id: oss
+          uri: lb://lumenote-oss
+          predicates:
+            - Path=/file/**
+        # 智能助手：控制器自带 @RequestMapping("/aigc")，所以不加 StripPrefix
+        - id: aigc
+          uri: lb://lumenote-aigc
+          predicates:
+            - Path=/aigc/**
   data:
     redis:
       database: 0 # Redis 数据库索引（默认为 0）
-      host: 127.0.0.1 # Redis 服务器地址
+      host: 192.168.100.111 # Redis 服务器地址（虚拟机 Docker）
       port: 6379 # Redis 服务器连接端口
-      password: 123456 # Redis 服务器连接密码（默认为空）
+      password: ${REDIS_PASSWORD:} # Redis 服务器连接密码（生产环境通过环境变量设置）
       timeout: 5s # 读超时时间
       connect-timeout: 5s # 链接超时时间
       lettuce:

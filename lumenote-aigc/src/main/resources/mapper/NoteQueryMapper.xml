@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.deepsea.lumenote.aigc.domain.mapper.NoteQueryMapper">
+
+    <!-- 按关键词搜当前用户的笔记；关键词为空则取最近若干篇 -->
+    <select id="searchByCreator" resultType="com.deepsea.lumenote.aigc.model.vo.NoteBriefVO">
+        SELECT id,
+               title,
+               topic_name AS topicName,
+               DATE_FORMAT(create_time, '%Y-%m-%d %H:%i') AS createTime
+        FROM t_note
+        WHERE creator_id = #{creatorId}
+          AND status = 1
+        <if test="keyword != null and keyword != ''">
+            AND title LIKE CONCAT('%', #{keyword}, '%')
+        </if>
+        ORDER BY create_time DESC
+        LIMIT #{limit}
+    </select>
+
+    <!-- 按 ID 查当前用户的单篇笔记（越权保护：必须同时匹配 creator_id） -->
+    <select id="findByIdAndCreator" resultType="com.deepsea.lumenote.aigc.model.vo.NoteDetailVO">
+        SELECT id,
+               title,
+               topic_name   AS topicName,
+               content_uuid AS contentUuid,
+               img_uris     AS imgUris,
+               DATE_FORMAT(create_time, '%Y-%m-%d %H:%i') AS createTime,
+               visible
+        FROM t_note
+        WHERE id = #{noteId}
+          AND creator_id = #{creatorId}
+          AND status = 1
+        LIMIT 1
+    </select>
+
+</mapper>

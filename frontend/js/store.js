@@ -87,6 +87,7 @@ export const auth = {
       ? {
           id: me.id === null || me.id === undefined ? '' : String(me.id),
           nickname: me.nickname || '',
+          lumenoteId: me.lumenoteId || '',
           avatar: me.avatar || '',
           introduction: me.introduction || '',
           backgroundImg: me.backgroundImg || '',

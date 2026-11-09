@@ -366,7 +366,9 @@ function boot() {
     scheduleLikedSync();
   });
 
-  if (auth.isLoggedIn && auth.phone && !auth.me) {
+  // 启动时刷新一次用户资料：本地可能存着旧结构（比如缺 lumenoteId），
+  // 只在 !auth.me 时拉取会让旧缓存一直生效。
+  if (auth.isLoggedIn && auth.phone) {
     resolveMe({ timeout: 8000 }).catch((err) => {
       if (err?.status !== 401) console.warn('[app] 启动时获取用户资料失败：', err);
     });

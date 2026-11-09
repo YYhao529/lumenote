@@ -19,6 +19,8 @@ public enum ResponseCodeEnum implements BaseExceptionInterface {
     PHONE_OR_PASSWORD_ERROR("AUTH-20004", "手机号或密码错误"),
     LOGIN_FAIL("AUTH-20005", "登录失败"),
     PHONE_NUMBER_FORMAT_ERROR("AUTH-20006","手机号格式错误"),
+    OLD_PASSWORD_ERROR("AUTH-20007", "原密码错误"),
+    VERIFICATION_CODE_TOO_MANY_ATTEMPTS("AUTH-20008", "验证码错误次数过多，请重新获取"),
     ;
 
     // 异常码

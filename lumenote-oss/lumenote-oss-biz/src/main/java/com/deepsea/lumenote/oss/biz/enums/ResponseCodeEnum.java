@@ -13,6 +13,8 @@ public enum ResponseCodeEnum implements BaseExceptionInterface {
 
     // ----------- 业务异常状态码 -----------
     FILE_EMPTY("OSS-20000", "文件为空"),
+    FILE_TYPE_NOT_ALLOWED("OSS-20001", "不支持的文件类型，仅允许上传图片（jpg/jpeg/png/gif/webp/bmp）或视频（mp4/mov/webm）"),
+    FILE_TOO_LARGE("OSS-20002", "文件太大，单个文件不能超过 200MB"),
     ;
 
     // 异常码

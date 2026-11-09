@@ -7,6 +7,7 @@ import com.deepsea.lumenote.count.biz.domain.mapper.NoteCountDOMapper;
 import com.deepsea.lumenote.count.biz.domain.mapper.UserCountDOMapper;
 import com.deepsea.lumenote.count.biz.model.vo.FindNoteCountReqVO;
 import com.deepsea.lumenote.count.biz.model.vo.FindUserCountReqVO;
+import com.deepsea.lumenote.count.biz.model.vo.FindUserCountsReqVO;
 import com.deepsea.lumenote.count.biz.model.vo.NoteCountRspVO;
 import com.deepsea.lumenote.count.biz.model.vo.UserCountRspVO;
 import com.deepsea.lumenote.count.biz.service.CountService;
@@ -15,7 +16,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ThreadLocalRandom;
@@ -147,6 +150,24 @@ public class CountServiceImpl implements CountService {
                 .likeTotal(toLong(cache.get(RedisKeyConstants.FIELD_LIKE_TOTAL)))
                 .collectTotal(toLong(cache.get(RedisKeyConstants.FIELD_COLLECT_TOTAL)))
                 .build();
+    }
+
+    @Override
+    public List<UserCountRspVO> findUserCounts(FindUserCountsReqVO findUserCountsReqVO) {
+        List<UserCountRspVO> result = new ArrayList<>();
+
+        if (Objects.isNull(findUserCountsReqVO) || Objects.isNull(findUserCountsReqVO.getUserIds())) {
+            return result;
+        }
+
+        for (Long userId : findUserCountsReqVO.getUserIds()) {
+            if (Objects.isNull(userId)) {
+                continue;
+            }
+            result.add(findUserCount(FindUserCountReqVO.builder().userId(userId).build()));
+        }
+
+        return result;
     }
 
     /**

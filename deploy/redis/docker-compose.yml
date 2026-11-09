@@ -1,0 +1,18 @@
+name: lumenote-redis
+
+services:
+  redis:
+    # 注意：必须是 glibc 版（Debian）镜像。alpine 是 musl，加载不了在宿主机
+    # （CentOS/glibc）编译出来的 redisbloom.so。
+    image: redis:${REDIS_VERSION:-7.4}
+    container_name: redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      # 数据绑定挂载到宿主机目录（不是匿名卷）
+      - ${REDIS_DATA_DIR:-/opt/lumenote/redis/data}:/data
+      - ./conf/redis.conf:/usr/local/etc/redis/redis.conf:ro
+      # RedisBloom 模块（点赞/收藏的 BF.* 命令）
+      - ${REDIS_MODULES_DIR:-/opt/lumenote/redis/modules}:/opt/redis/modules
+    command: ["redis-server", "/usr/local/etc/redis/redis.conf"]

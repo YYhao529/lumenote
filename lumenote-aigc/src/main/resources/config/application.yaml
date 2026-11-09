@@ -1,0 +1,24 @@
+server:
+  port: 8088 # 项目启动的端口
+
+spring:
+  # 远程配置走 spring.config.import（bootstrap 方式在 Boot 3.4 + Cloud 2024 下不生效）
+  config:
+    import:
+      - optional:nacos:lumenote-aigc-dev.yaml?group=DEFAULT_GROUP&refreshEnabled=true
+  cloud:
+    nacos:
+      config:
+        server-addr: 192.168.100.111:8848
+        namespace: lumenote
+        group: DEFAULT_GROUP
+        file-extension: yaml
+        refresh-enabled: true
+  profiles:
+    active: dev # 默认激活 dev 本地开发环境
+
+mybatis:
+  # MyBatis xml 配置文件路径
+  mapper-locations: classpath:/mapper/**/*.xml
+  configuration:
+    map-underscore-to-camel-case: true # 开启驼峰命名自动映射下划线

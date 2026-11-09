@@ -1,8 +1,8 @@
-# 时光笔记 Web 前端（电脑端）
+# 拾光笔记 Web 前端（电脑端）
 
 基于本项目 Spring Cloud Alibaba 微服务接口实现的 **面向 PC 浏览器的 HTML + CSS + 原生 JavaScript 前端**，无构建工具、无 npm 依赖。
 
-所有页面与交互都直接调用现有后端接口，**没有修改任何后端代码**。
+所有页面与交互都通过网关调用后端接口；配套的后端修复与启动说明见根目录 `README.md`。
 
 ---
 
@@ -45,12 +45,12 @@ node server.js 5190    # 指定端口
 
 ## 一、为什么需要 server.js
 
-当前网关 `lumenote-gateway` 有两个前端无法绕开的问题：
+网关 `lumenote-gateway` 现在已经补齐 `/auth`、`/user`、`/note`、`/relation`、`/search`、`/count`、`/file` 路由，并在网关层配置了 CORS。`server.js` 仍然保留，原因有两个：
 
-1. **没有配置 CORS**。浏览器从 `http://127.0.0.1:5180` 直连 `http://127.0.0.1:8000` 会被跨域拦截。
-2. **网关只路由了 `/auth`、`/user`、`/note`、`/relation`**，没有 `/search` 与 `/file`，而搜索服务（8092）和 OSS 服务（8081）又是发布笔记、上传头像所必需的。
+1. 托管静态文件（项目没有构建工具）；
+2. 同源代理，开发时前端只访问 `127.0.0.1:5180`，不用关心跨域，也方便内网穿透。
 
-因此 `server.js` 做了两件事：
+`server.js` 做的事：
 
 - 托管静态文件；
 - 同源代理（默认只监听 `127.0.0.1`）：
@@ -61,20 +61,22 @@ node server.js 5190    # 指定端口
 | `/user/**` | `http://127.0.0.1:8000` | 网关 → user 服务 |
 | `/note/**` | `http://127.0.0.1:8000` | 网关 → note 服务 |
 | `/relation/**` | `http://127.0.0.1:8000` | 网关 → relation 服务 |
-| `/search/**` | `http://127.0.0.1:8092` | 网关没有该路由，直连搜索服务 |
-| `/file/**` | `http://127.0.0.1:8081` | 网关没有该路由，直连 OSS 服务 |
+| `/search/**` | `http://127.0.0.1:8000` | 网关 → search 服务 |
+| `/count/**` | `http://127.0.0.1:8000` | 网关 → count 服务 |
+| `/file/**` | `http://127.0.0.1:8000` | 网关 → oss 服务 |
+| `/minio/**` | `http://127.0.0.1:9000` | MinIO 对象直读（历史数据的绝对地址） |
 
 可通过环境变量覆盖：
 
 ```bash
 # macOS / Linux / Git Bash
-GATEWAY_URL=http://192.168.1.10:8000 SEARCH_URL=http://192.168.1.10:8092 OSS_URL=http://192.168.1.10:8081 node server.js
+GATEWAY_URL=http://192.168.1.10:8000 node server.js
 
 # Windows PowerShell
 $env:GATEWAY_URL="http://192.168.1.10:8000"; node server.js
 ```
 
-生产部署时推荐在网关补齐路由与 CORS，然后把前端静态文件交给 Nginx，不需要 `server.js`。
+生产部署时前端静态文件交给 Nginx，接口统一走网关，不需要 `server.js`。
 
 ---
 
@@ -133,11 +135,11 @@ $env:GATEWAY_URL="http://192.168.1.10:8000"; node server.js
 
 后端没有「点赞状态 / 收藏状态 / 关注状态 / 置顶状态」查询接口，前端在 `localStorage` 中按用户维度记录这些状态，用于刷新后保留按钮样式：
 
-- `xhs:<userId>:interactions`：点赞、收藏
-- `xhs:<userId>:following`：关注的用户
-- `xhs:<userId>:topped`：置顶的笔记
-- `xhs:recent-notes`：最近浏览
-- `xhs:recent-searches`：最近搜索
+- `lumenote:<userId>:interactions`：点赞、收藏
+- `lumenote:<userId>:following`：关注的用户
+- `lumenote:<userId>:topped`：置顶的笔记
+- `lumenote:recent-notes`：最近浏览
+- `lumenote:recent-searches`：最近搜索
 
 这些只是体验补偿，真实状态仍以服务端为准。换设备、换浏览器或清理缓存后会失真。
 
@@ -149,31 +151,34 @@ $env:GATEWAY_URL="http://192.168.1.10:8000"; node server.js
 
 ---
 
-## 四、已知的后端接口缺口
+## 四、接口现状与剩余缺口
 
-以下是前端开发过程中发现的、**需要后端确认或补充**的问题。当前前端均已用兜底方案处理，没有修改后端代码。
+以下问题已经修复（前端代码无需再兜底）：
 
-| # | 问题 | 前端处理 | 建议 |
+| 已修复 | 说明 |
+| --- | --- |
+| 网关路由与 CORS | `/search`、`/count`、`/file` 已接入网关，网关统一 CORS |
+| 用户笔记列表 | `/note/list/publish`、`/note/list/collect`、`/note/list/like` |
+| 可见性恢复 | `/note/visible/public` |
+| 点赞状态查询 | `/note/liked/status` |
+| 笔记计数 | `/count/note`，详情页已使用真实点赞/收藏数 |
+| 改密安全 | 修改密码必须校验原密码，成功后注销所有 token |
+| 手机号查询泄露密码 | `/user/findByPhone` 只返回用户 ID，密码校验移到用户服务内部 |
+
+仍然存在的产品/接口缺口：
+
+| # | 缺口 | 前端现状 | 建议 |
 | --- | --- | --- | --- |
-| 1 | 网关缺少 `/search/**`、`/file/**` 路由 | 开发代理直连 8092 / 8081 | 网关补路由并统一鉴权、限流 |
-| 2 | 网关未配置 CORS | 同源代理规避 | 网关统一 CORS 或前后端同域 |
-| 3 | 没有推荐流 / 笔记列表接口 | 发现页以搜索 + 最近浏览为主 | 增加 feed / 我的笔记 / 用户笔记接口 |
-| 4 | 登录只返回 token，没有当前用户接口 | `findByPhone → findById` 组合 | 增加 `/user/me`，或登录返回 `{token,userId}` |
-| 5 | 没有点赞 / 收藏 / 关注状态查询 | 本地 localStorage 记录 | 增加状态查询接口 |
-| 6 | 没有评论接口 | 详情页评论区为占位 | 补评论增删查 |
-| 7 | 发布接口不返回笔记 ID | 发布成功弹窗引导去搜索 | `/note/publish` 返回新笔记 ID |
-| 8 | 详情不返回 `likeTotal` / `collectTotal` / `commentTotal` / `isTop` | 数字复用搜索结果快照；置顶状态本地记录 | 扩展 `FindNoteDetailRspVO` |
-| 9 | 只有「设为仅自己可见」，没有改回公开 | 操作前弹窗明确警告 | 增加可见性切换接口 |
-| 10 | Long 型 ID 的 JS 精度问题 | 16 位以上 ID 转字符串 | 后端 `Long -> String` |
-| 11 | 验证码没有测试通道 | 页面不展示内部提示；联调时查看 auth 服务日志 | 开发环境返回测试验证码或固定验证码 |
-| 12 | 修改密码不校验原密码 | 页面正常调用 | 增加旧密码校验，修改后使旧 token 失效 |
+| 1 | 没有 `/user/me` | 用 `findByPhone → findById` 组合 | 登录返回 `{token,userId}` 或增加 `/user/me` |
+| 2 | 没有评论接口 | 详情页评论区为占位 | 补评论增删查 |
+| 3 | 没有关注流 / 推荐流 | 发现页用热门笔记 + 搜索 | 增加 feed 接口 |
+| 4 | 发布接口不返回笔记 ID | 发布成功引导去搜索 | `/note/publish` 返回新笔记 ID |
+| 5 | 详情不返回计数字段与 `isTop` | 数字走 `/count/note`，置顶状态本地记录 | 扩展 `FindNoteDetailRspVO` |
+| 6 | Long 型 ID 未全局转字符串 | 前端对 16 位以上 ID 打补丁 | 后端统一 `Long -> String` |
+| 7 | 验证码没有测试通道 | 开发时看 auth 日志（debug） | 开发环境返回固定验证码 |
+| 8 | token 存在 `localStorage` | 有 XSS 风险 | 改 HttpOnly Cookie 或收紧 CSP |
 
-另外有 **安全相关** 的问题建议优先处理：
-
-- `/user/findByPhone` 会返回用户的 **密码密文**，任何已登录用户都能按手机号查询。建议只返回 `id`（或移除该字段的对外暴露）。
-- `/user/findByPhone` 被前端用于换取当前用户 ID，属于“借用内部接口”，长期应替换为 `/user/me`。
-- token 存在 `localStorage`，存在 XSS 风险；如果需要更高安全性，建议改成 HttpOnly Cookie + 网关统一鉴权。
-- `/file/upload` 直连 8081 时绕过了网关鉴权；生产环境必须收口。
+安全提示：`/user/password/verify`、`/user/password/verifyById` 是服务内部接口，虽然不再返回密码密文，但生产环境仍建议只允许内网/服务间访问，并在网关层做限流。
 
 ---
 
@@ -223,12 +228,13 @@ frontend/
    - 用户：8082
    - 笔记：8086
    - 关系：8087
+   - 计数：8090
    - 搜索：8092
    - OSS：8081
 3. `cd frontend && node server.js`
 4. 打开 `http://127.0.0.1:5180`，先看「接口」页的三个健康状态。
 5. 登录：
-   - 验证码登录：点「获取验证码」后，到 `lumenote-auth` 日志里搜 `已生成验证码`；
+   - 验证码登录：点「获取验证码」后，到 `lumenote-auth` 的 debug 日志里搜 `已生成验证码`；
    - 密码登录：需要该手机号已设置过密码。
 6. 发布笔记需要 OSS 可用（或直接粘贴图片外链）。
 
@@ -237,9 +243,10 @@ frontend/
 | 现象 | 排查 |
 | --- | --- |
 | 页面提示“网络异常” | 后端/网关未启动，或端口不一致 |
-| 搜索 502 | 搜索服务 8092 未启动，或 Elasticsearch 未就绪 |
-| 上传失败 | OSS 服务 8081 未启动，或阿里云 AK / bucket 配置不对 |
+| 搜索 502 | 网关到搜索服务不通，检查 8092 与 Elasticsearch |
+| 上传失败 | 网关到 OSS 不通，或 OSS AK / bucket 配置不对 |
 | 401 | token 过期或未登录；重新登录 |
+| 修改密码后立刻 401 | 后端会注销所有 token，重新登录即可 |
 | 图片 404 | OSS bucket 权限、URL 过期或图片地址不可访问 |
 | 笔记详情 401 | 详情接口在网关被 Sa-Token 拦截，必须登录后访问 |
 | 登录后“我的主页”提示需要绑定手机号 | 本地手机号丢失，重新登录或填写登录手机号 |

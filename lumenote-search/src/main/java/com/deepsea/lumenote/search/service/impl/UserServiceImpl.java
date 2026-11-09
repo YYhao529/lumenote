@@ -1,32 +1,35 @@
 package com.deepsea.lumenote.search.service.impl;
 
-import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.collection.CollUtil;
 import com.google.common.collect.Lists;
 import com.deepsea.framework.common.response.PageResponse;
+import com.deepsea.framework.common.response.Response;
 import com.deepsea.framework.common.util.NumberUtils;
+import com.deepsea.lumenote.search.domain.mapper.SelectMapper;
 import com.deepsea.lumenote.search.index.UserIndex;
 import com.deepsea.lumenote.search.model.vo.SearchUserReqVO;
 import com.deepsea.lumenote.search.model.vo.SearchUserRspVO;
 import com.deepsea.lumenote.search.service.UserService;
 import lombok.extern.slf4j.Slf4j;
+import org.elasticsearch.action.delete.DeleteRequest;
+import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.client.Request;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
-import org.elasticsearch.common.xcontent.XContentParser;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.SearchHit;
-import org.elasticsearch.search.SearchHits;
-import org.elasticsearch.search.fetch.subphase.highlight.HighlightBuilder;
-import org.elasticsearch.search.fetch.subphase.highlight.HighlightField;
+import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.search.sort.SortOrder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.io.IOException;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 
 /**
  * 用户搜索业务
@@ -37,6 +40,9 @@ public class UserServiceImpl implements UserService {
 
     @Autowired
     private RestHighLevelClient restHighLevelClient;
+
+    @Autowired
+    private SelectMapper selectMapper;
 
     /**
      * 搜索用户
@@ -60,10 +66,11 @@ public class UserServiceImpl implements UserService {
                 .sort(UserIndex.FIELD_USER_FANS_TOTAL, SortOrder.DESC)  // 排序，按 fans_total 降序
                 .from(from)
                 .size(pageSize)
-                .highlighter(new HighlightBuilder().field(UserIndex.FIELD_USER_NICKNAME).preTags("<strong>").postTags("</strong>"));
+                .highlighter(new org.elasticsearch.search.fetch.subphase.highlight.HighlightBuilder()
+                        .field(UserIndex.FIELD_USER_NICKNAME).preTags("<strong>").postTags("</strong>"));
 
-        // 返参 VO 集合
-        List<SearchUserRspVO> searchUserRspVOS = null;
+        // 返参 VO 集合（异常时返回空列表，而不是 null）
+        List<SearchUserRspVO> searchUserRspVOS = Lists.newArrayList();
         // 总文档数，默认为 0
         long total = 0;
         try {
@@ -75,8 +82,6 @@ public class UserServiceImpl implements UserService {
             // 处理搜索结果
             total = searchResponse.getHits().getTotalHits().value;
             log.info("==> 命中文档总数, hits: {}", total);
-
-            searchUserRspVOS = Lists.newArrayList();
 
             SearchHit[] hitsArray = searchResponse.getHits().getHits();
             for (SearchHit hit : hitsArray) {
@@ -92,8 +97,11 @@ public class UserServiceImpl implements UserService {
                 String nickname = (String) sourceAsMap.get(UserIndex.FIELD_USER_NICKNAME);
                 String avatar = (String) sourceAsMap.get(UserIndex.FIELD_USER_AVATAR);
                 String lumenoteId = (String) sourceAsMap.get(UserIndex.FIELD_USER_LUMENOTE_ID);
-                Integer noteTotal = (Integer) sourceAsMap.get(UserIndex.FIELD_USER_NOTE_TOTAL);
-                Integer fansTotal = (Integer) sourceAsMap.get(UserIndex.FIELD_USER_FANS_TOTAL);
+
+                // ES 返回的数字可能是 Integer / Long，统一按 Number 处理，避免类型转换异常
+                Number noteTotal = (Number) sourceAsMap.get(UserIndex.FIELD_USER_NOTE_TOTAL);
+                Number fansTotal = (Number) sourceAsMap.get(UserIndex.FIELD_USER_FANS_TOTAL);
+
                 if (CollUtil.isNotEmpty(hit.getHighlightFields())
                         && hit.getHighlightFields().containsKey(UserIndex.FIELD_USER_NICKNAME)) {
                     highlightNickname = hit.getHighlightFields().get(UserIndex.FIELD_USER_NICKNAME).fragments()[0].string();
@@ -105,8 +113,8 @@ public class UserServiceImpl implements UserService {
                         .nickname(nickname)
                         .avatar(avatar)
                         .lumenoteId(lumenoteId)
-                        .noteTotal(noteTotal)
-                        .fansTotal(NumberUtils.formatNumberString(fansTotal))
+                        .noteTotal(Objects.isNull(noteTotal) ? 0 : noteTotal.intValue())
+                        .fansTotal(NumberUtils.formatNumberString(Objects.isNull(fansTotal) ? 0L : fansTotal.longValue()))
                         .highlightNickname(highlightNickname)
                         .build();
                 searchUserRspVOS.add(searchUserRspVO);
@@ -115,6 +123,72 @@ public class UserServiceImpl implements UserService {
             log.error("==> 查询 Elasticsearch 异常: ", e);
         }
 
-        return PageResponse.success(searchUserRspVOS, pageNo, total);
+        return PageResponse.success(searchUserRspVOS, pageNo, total, pageSize);
+    }
+
+    /**
+     * 重建用户索引（全量同步 + 清理 ES 中数据库已不存在的孤儿文档）
+     */
+    @Override
+    public Response<Integer> rebuildUserIndex() {
+        List<Map<String, Object>> records = selectMapper.selectEsUserIndexData(null);
+
+        Set<String> existingUserIds = new HashSet<>();
+        int count = 0;
+
+        for (Map<String, Object> record : records) {
+            try {
+                String userId = String.valueOf(record.get(UserIndex.FIELD_USER_ID));
+                IndexRequest indexRequest = new IndexRequest(UserIndex.NAME);
+                indexRequest.id(userId);
+                indexRequest.source(record);
+                restHighLevelClient.index(indexRequest, RequestOptions.DEFAULT);
+
+                existingUserIds.add(userId);
+                count++;
+            } catch (Exception e) {
+                log.error("==> 重建用户索引失败, userId: {}", record.get(UserIndex.FIELD_USER_ID), e);
+            }
+        }
+
+        int deleted = deleteOrphanUserDocuments(existingUserIds);
+
+        // 刷新索引，让结果立即可见
+        try {
+            Request refreshRequest = new Request("POST", "/" + UserIndex.NAME + "/_refresh");
+            restHighLevelClient.getLowLevelClient().performRequest(refreshRequest);
+        } catch (Exception e) {
+            log.warn("==> 刷新用户索引失败", e);
+        }
+
+        log.info("==> 重建用户索引完成, 同步 {} 条, 清理 {} 条", count, deleted);
+        return Response.success(count);
+    }
+
+    /**
+     * 删除 ES 中数据库已不存在的用户文档
+     */
+    private int deleteOrphanUserDocuments(Set<String> existingUserIds) {
+        int deleted = 0;
+        try {
+            SearchRequest searchRequest = new SearchRequest(UserIndex.NAME);
+            searchRequest.source(new SearchSourceBuilder()
+                    .query(QueryBuilders.matchAllQuery())
+                    .fetchSource(false)
+                    .size(10000));
+
+            SearchResponse searchResponse = restHighLevelClient.search(searchRequest, RequestOptions.DEFAULT);
+
+            for (SearchHit hit : searchResponse.getHits().getHits()) {
+                if (!existingUserIds.contains(hit.getId())) {
+                    restHighLevelClient.delete(new DeleteRequest(UserIndex.NAME, hit.getId()), RequestOptions.DEFAULT);
+                    log.info("==> 清理 ES 孤儿用户文档, userId: {}", hit.getId());
+                    deleted++;
+                }
+            }
+        } catch (Exception e) {
+            log.error("==> 清理 ES 孤儿用户文档失败", e);
+        }
+        return deleted;
     }
 }

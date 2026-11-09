@@ -50,6 +50,18 @@ public class UserController {
         return userService.findByPhone(findUserByPhoneReqDTO);
     }
 
+    @PostMapping("/password/verify")
+    @ApiOperationLog(description = "校验手机号与密码")
+    public Response<Long> verifyPassword(@Validated @RequestBody VerifyPasswordReqDTO verifyPasswordReqDTO) {
+        return userService.verifyPassword(verifyPasswordReqDTO);
+    }
+
+    @PostMapping("/password/verifyById")
+    @ApiOperationLog(description = "按用户 ID 校验密码")
+    public Response<Boolean> verifyPasswordByUserId(@Validated @RequestBody VerifyPasswordByUserIdReqDTO verifyPasswordByUserIdReqDTO) {
+        return userService.verifyPasswordByUserId(verifyPasswordByUserIdReqDTO);
+    }
+
     @PostMapping("/password/update")
     @ApiOperationLog(description = "修改密码")
     public Response<?> updatePassword(@Validated @RequestBody UpdateUserPasswordReqDTO updateUserPasswordReqDTO) {

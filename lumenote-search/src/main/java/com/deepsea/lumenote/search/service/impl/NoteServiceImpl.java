@@ -241,7 +241,7 @@ public class NoteServiceImpl implements NoteService {
             log.error("==> 查询 Elasticserach 异常: ", e);
         }
 
-        return PageResponse.success(searchNoteRspVOS, pageNo, total);
+        return PageResponse.success(searchNoteRspVOS, pageNo, total, pageSize);
     }
 
     /**
@@ -324,7 +324,7 @@ public class NoteServiceImpl implements NoteService {
             log.error("==> 查询 Elasticserach 异常: ", e);
         }
 
-        return PageResponse.success(searchNoteRspVOS, pageNo, total);
+        return PageResponse.success(searchNoteRspVOS, pageNo, total, pageSize);
     }
 
     /**

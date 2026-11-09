@@ -40,7 +40,7 @@ const GROUPS = [
         path: '/auth/password/update',
         auth: true,
         desc: '修改密码',
-        req: { newPassword: 'new-password-123' },
+        req: { oldPassword: 'old-password', newPassword: 'new-password-123' },
         res: '{ "success": true }',
         note: '现有后端只传新密码，不校验原密码，请谨慎使用。',
       },
@@ -71,18 +71,18 @@ const GROUPS = [
       {
         path: '/user/findByPhone',
         auth: true,
-        desc: '根据手机号查询用户（含密码密文）',
+        desc: '根据手机号查询用户（只返回用户 ID）',
         req: { phone: '13800138000' },
-        res: '{ "success": true, "data": { "id": "用户 ID", "password": "$2a$..." } }',
-        note: '前端用它把登录手机号换成用户 ID（因为登录接口只返回 token）。',
+        res: '{ "success": true, "data": { "id": "用户 ID" } }',
+        note: '不再返回密码密文；前端用它把登录手机号换成用户 ID。',
       },
       {
         path: '/user/findById',
         auth: true,
         desc: '根据用户 ID 查询用户资料',
         req: { id: '用户 ID' },
-        res: '{ "success": true, "data": { "id": "…", "nickname": "小红薯10000", "avatar": "https://…", "introduction": "…" } }',
-        note: '只返回昵称、头像、简介，不含时光笔记号、性别、生日与笔记数。',
+        res: '{ "success": true, "data": { "id": "…", "nickname": "拾光笔记10000", "avatar": "https://…", "introduction": "…" } }',
+        note: '只返回昵称、头像、简介，不含拾光笔记号、性别、生日与笔记数。',
       },
       {
         path: '/user/findByIds',
@@ -95,10 +95,10 @@ const GROUPS = [
       {
         path: '/user/password/update',
         auth: true,
-        desc: '更新密码密文（认证服务内部调用）',
-        req: { encodePassword: '$2a$10$...' },
+        desc: '修改密码（需原密码，认证服务内部调用）',
+        req: { oldPassword: 'old-password', newPassword: 'new-password-123' },
         res: '{ "success": true }',
-        note: '入参是已加密的密码，前端不应直接调用。',
+        note: '用户服务内部完成原密码校验与 BCrypt 加密；前端请调用 /auth/password/update。',
       },
     ],
   },
@@ -253,7 +253,7 @@ const GROUPS = [
   {
     id: 'search',
     name: '搜索服务',
-    port: '直连 8092（网关未配置 /search 路由）',
+    port: '网关 /search（内部 8092）',
     items: [
       {
         path: '/search/note',
@@ -267,16 +267,16 @@ const GROUPS = [
         path: '/search/user',
         auth: false,
         desc: '搜索用户（Elasticsearch）',
-        req: { keyword: '小红薯', pageNo: 1 },
-        res: '{ "success": true, "data": [ { "userId": "…", "nickname": "…", "highlightNickname": "<strong>小红薯</strong>…", "avatar": "…", "lumenoteId": "…", "noteTotal": 0, "fansTotal": "0" } ], "pageNo": 1, "totalCount": 1, "pageSize": 10, "totalPage": 1 }',
-        note: '搜索服务没有鉴权，前端通过本地代理直连 8092。',
+        req: { keyword: '拾光笔记', pageNo: 1 },
+        res: '{ "success": true, "data": [ { "userId": "…", "nickname": "…", "highlightNickname": "<strong>拾光笔记</strong>…", "avatar": "…", "lumenoteId": "…", "noteTotal": 0, "fansTotal": "0" } ], "pageNo": 1, "totalCount": 1, "pageSize": 10, "totalPage": 1 }',
+        note: '搜索与计数接口已接入网关，游客可访问；前端统一走同源代理。',
       },
     ],
   },
   {
     id: 'file',
     name: '文件存储服务',
-    port: '直连 8081（网关未配置 /file 路由）',
+    port: '网关 /file（内部 8081）',
     items: [
       {
         path: '/file/upload',
@@ -347,29 +347,9 @@ const GROUPS = [
 
 const GAPS = [
   {
-    title: '网关缺少 /search 与 /file 路由',
+    title: '没有 /user/me',
     body:
-      'gateway 只配置了 /auth、/user、/note、/relation。搜索与文件上传由前端开发代理直连 8092 / 8081；生产环境建议在网关补上 /search/**、/file/** 并统一鉴权与限流。',
-  },
-  {
-    title: '网关未配置 CORS',
-    body:
-      '浏览器从其他端口直连网关会被跨域拦截。本项目用 server.js 做同源代理规避；正式部署建议网关统一配置 CORS 或前后端同域部署。',
-  },
-  {
-    title: '没有推荐流 / 笔记列表接口',
-    body:
-      '后端只有搜索与笔记详情，没有 feed、频道、我的笔记、用户笔记列表。发现页因此以「搜索 + 最近浏览」为主，个人主页无法展示笔记。',
-  },
-  {
-    title: '登录只返回 token，没有当前用户接口',
-    body:
-      '前端用登录手机号调用 /user/findByPhone 换 userId，再调用 /user/findById 拿昵称头像。建议增加 /user/me，或让登录接口返回 { token, userId }。',
-  },
-  {
-    title: '没有点赞 / 收藏 / 关注状态查询',
-    body:
-      '详情页无法知道当前用户是否已点赞、收藏、关注，按钮状态由前端 localStorage 记录；换设备或清缓存后会失真。建议增加状态查询接口。',
+      '登录只返回 token。前端用登录手机号调用 /user/findByPhone 换 userId，再调用 /user/findById 拿昵称头像。建议增加 /user/me，或让登录接口返回 { token, userId }。',
   },
   {
     title: '没有评论接口',
@@ -377,34 +357,34 @@ const GAPS = [
       '数据模型与搜索索引里有 commentTotal，但没有评论增删查接口，详情页评论区目前是占位说明。',
   },
   {
+    title: '没有关注流 / 推荐流',
+    body:
+      '发现页目前使用搜索服务的热门笔记接口；没有「关注的人发布」信息流，也没有频道/话题推荐流。',
+  },
+  {
     title: '发布接口不返回笔记 ID',
     body:
       '发布成功后无法直接跳转详情，只能提示用户到搜索页按标题查找；建议 /note/publish 返回新笔记 ID。',
   },
   {
-    title: '详情缺少计数与置顶状态',
+    title: '详情不返回计数与置顶状态',
     body:
-      'FindNoteDetailRspVO 不含 likeTotal / collectTotal / commentTotal / isTop，详情页的数字只能复用搜索结果快照，置顶状态由前端本地记录。',
+      'FindNoteDetailRspVO 不含 likeTotal / collectTotal / commentTotal / isTop。前端已改为单独调用 /count/note 取真实计数，置顶状态仍由本地记录。',
   },
   {
-    title: '私密笔记可恢复公开',
+    title: 'Long 型 ID 未全局转字符串',
     body:
-      '已补充 /note/visible/public 接口：作者可在笔记详情页点「设为公开」把私密笔记恢复为公开，恢复后 Canal 会重新把该笔记同步进 ES 索引。',
+      '雪花 ID 是 19 位，Jackson 默认以数字返回，JS Number 会丢失精度。前端已把 16 位以上的 id/noteId/creatorId 等字段解析为字符串，并在请求时以字符串回传。建议后端统一配置 Long → String 序列化。',
   },
   {
-    title: 'Long 型 ID 的 JS 精度问题',
+    title: '验证码没有测试通道',
     body:
-      '雪花 ID 是 19 位，Jackson 默认以数字返回，JS Number 会丢失精度。前端已把 16 位以上的 id/noteId/creatorId 等字段解析为字符串，并在请求时以字符串回传（Spring 的 Long 反序列化可接受数字字符串）。建议后端统一配置 Long → String 序列化。',
+      '验证码写入 Redis 并调用阿里云短信，没有测试验证码接口。本地联调请在 debug 日志中查看，或手动从 Redis 读取 verification_code:{phone}。',
   },
   {
     title: '业务失败仍是 HTTP 200',
     body:
       '所有业务异常通过 { success: false, errorCode, message } 返回，HTTP 状态仍为 200；前端已统一按 success 判断。对接第三方 SDK / 监控时需要额外注意。',
-  },
-  {
-    title: '验证码没有测试通道',
-    body:
-      '验证码只写入 Redis 并调用阿里云短信/打印日志，没有测试验证码接口。本地联调请查看 lumenote-auth 的日志，或手动从 Redis 读取。',
   },
 ];
 
@@ -445,8 +425,8 @@ export default {
       <div class="notice notice-info">
         ${icons.info()}
         <div>
-          页面通过 <code>server.js</code> 同源代理访问后端：<code>/auth /user /note /relation → 8000</code>，
-          <code>/search → 8092</code>，<code>/file → 8081</code>。
+          页面通过 <code>server.js</code> 同源代理访问后端：<code>/auth /user /note /relation /search /count /file → 8000</code>，
+          网关统一做鉴权、CORS 与路由；<code>/minio</code> 单独代理到对象存储。
           若服务未启动，可先用 <code>node server.js</code> 启动前端，再按 README 启动后端。
         </div>
       </div>

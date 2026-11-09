@@ -59,4 +59,14 @@
             <artifactId>lumenote-spring-boot-starter-biz-context</artifactId>
         </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <!-- 和其他 biz 模块保持一致：把依赖打进可执行 jar（否则 jar 里没有主清单属性） -->
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
 </project>

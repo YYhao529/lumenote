@@ -13,4 +13,11 @@ public interface SelectMapper {
      * @param noteId 为 null 时查询全部笔记（用于全量重建索引）
      */
     List<Map<String, Object>> selectEsNoteIndexData(@Param("noteId") Long noteId);
+
+    /**
+     * 查询用户文档所需的全字段数据
+     *
+     * @param userId 为 null 时查询全部用户（用于全量重建索引）
+     */
+    List<Map<String, Object>> selectEsUserIndexData(@Param("userId") Long userId);
 }

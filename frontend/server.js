@@ -2,7 +2,7 @@
 'use strict';
 
 /**
- * 时光笔记 Web 开发服务器
+ * 拾光笔记 Web 开发服务器
  *
  * - 托管 frontend 目录下的静态文件（HTML / CSS / 原生 ES Module）
  * - 同源代理后端接口，规避网关没有配置 CORS 的问题
@@ -13,8 +13,7 @@
  *
  * 后端地址可通过环境变量覆盖（Windows PowerShell 同样支持）：
  *   GATEWAY_URL=http://127.0.0.1:8000
- *   SEARCH_URL=http://127.0.0.1:8092
- *   OSS_URL=http://127.0.0.1:8081
+ *   SEARCH_URL / OSS_URL / COUNT_URL 仅用于 /__health 直连探测
  *   MINIO_URL=http://127.0.0.1:9000
  */
 
@@ -41,9 +40,11 @@ const ROUTES = [
   { prefix: '/user', target: GATEWAY_URL, name: 'user → gateway' },
   { prefix: '/note', target: GATEWAY_URL, name: 'note → gateway' },
   { prefix: '/relation', target: GATEWAY_URL, name: 'relation → gateway' },
-  { prefix: '/search', target: SEARCH_URL, name: 'search → search-service' },
-  { prefix: '/file', target: OSS_URL, name: 'file → oss-service' },
-  { prefix: '/count', target: COUNT_URL, name: 'count → count-service' },
+  // 网关已补齐 /search、/file、/count 路由，这里统一走网关，鉴权与 CORS 只在一处维护
+  { prefix: '/search', target: GATEWAY_URL, name: 'search → gateway' },
+  { prefix: '/file', target: GATEWAY_URL, name: 'file → gateway' },
+  { prefix: '/count', target: GATEWAY_URL, name: 'count → gateway' },
+  { prefix: '/aigc', target: GATEWAY_URL, name: 'aigc → gateway' },
   // stripPrefix：把 /minio/a/b.mp4 转发成 http://127.0.0.1:9000/a/b.mp4
   { prefix: '/minio', target: MINIO_URL, name: 'minio → object-storage', stripPrefix: true },
 ];
@@ -410,12 +411,12 @@ server.on('error', (err) => {
 server.listen(PORT, HOST, () => {
   const line = '─'.repeat(62);
   console.log(`\n${color.dim(line)}`);
-  console.log(`${color.bold('  时光笔记 Web')}  ${color.dim('HTML + CSS + 原生 JavaScript')}`);
+  console.log(`${color.bold('  拾光笔记 Web')}  ${color.dim('HTML + CSS + 原生 JavaScript')}`);
   console.log(`  本地地址   ${color.cyan(`http://${HOST}:${PORT}`)}`);
   console.log(`${color.dim(line)}`);
   console.log(`  ${color.bold('代理规则')}`);
   [
-    { label: '网关', target: GATEWAY_URL, prefixes: '/auth /user /note /relation' },
+    { label: '网关', target: GATEWAY_URL, prefixes: '/auth /user /note /relation /search /file /count' },
     { label: '搜索服务', target: SEARCH_URL, prefixes: '/search' },
     { label: '文件服务', target: OSS_URL, prefixes: '/file' },
     { label: '计数服务', target: COUNT_URL, prefixes: '/count' },

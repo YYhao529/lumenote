@@ -162,6 +162,28 @@ public class RabbitMQConfig {
                 .with(MQConstants.DELETE_NOTE_REDIS_CACHE_ROUTING_KEY);
     }
 
+    /*
+     * 延迟删除 Redis 笔记缓存：
+     * 不依赖 RabbitMQ 延迟插件，用「消息 TTL + 死信交换机」实现固定 1 秒延迟。
+     * 消息先进入 delay 队列，1 秒后过期，自动死信到上面的 Redis 缓存失效队列。
+     */
+    @Bean
+    public Queue deleteNoteRedisCacheDelayQueue() {
+        return QueueBuilder
+                .durable(MQConstants.NOTE_REDIS_CACHE_DELAY_QUEUE)
+                .ttl(1000)
+                .deadLetterExchange(MQConstants.NOTE_CACHE_INVALIDATE_EXCHANGE)
+                .deadLetterRoutingKey(MQConstants.DELETE_NOTE_REDIS_CACHE_ROUTING_KEY)
+                .build();
+    }
+
+    @Bean
+    public Binding deleteNoteRedisCacheDelayBinding(DirectExchange deleteNoteCacheExchange,
+                                                    Queue deleteNoteRedisCacheDelayQueue) {
+        return BindingBuilder.bind(deleteNoteRedisCacheDelayQueue).to(deleteNoteCacheExchange)
+                .with(MQConstants.DELETE_NOTE_REDIS_CACHE_DELAY_ROUTING_KEY);
+    }
+
     // ---------------------- 关注数、粉丝数落库消息 ----------------------
     // 关注数、粉丝数落库消息交换机
     @Bean

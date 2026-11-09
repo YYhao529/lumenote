@@ -22,6 +22,9 @@ public final class ParamUtils {
      * 昵称校验
      */
     public static boolean checkNickname(String nickname){
+        if (nickname == null) {
+            return false;
+        }
         // 检查长度
         if (nickname.length()<NICK_NAME_MIN_LENGTH || nickname.length()>NICK_NAME_MAX_LENGTH){
             return false;
@@ -31,7 +34,7 @@ public final class ParamUtils {
         return !pattern.matcher(nickname).find();
     }
 
-    // ============================== 校验时光笔记号 ==============================
+    // ============================== 校验拾光笔记号 ==============================
     // 定义 ID 长度范围
     private static final int ID_MIN_LENGTH = 6;
     private static final int ID_MAX_LENGTH = 15;
@@ -40,9 +43,12 @@ public final class ParamUtils {
     private static final String ID_REGEX = "^[a-zA-Z0-9_]+$";
 
     /**
-     * 时光笔记 ID 校验
+     * 拾光笔记 ID 校验
      */
     public static boolean checkLumenoteId(String lumenoteId){
+        if (lumenoteId == null) {
+            return false;
+        }
         // 检查长度
         if (lumenoteId.length()<ID_MIN_LENGTH || lumenoteId.length()>ID_MAX_LENGTH){
             return false;
@@ -57,7 +63,7 @@ public final class ParamUtils {
      */
     public static boolean checkLength(String str,int length){
         // 检查长度
-        if (str.isEmpty()||str.length()>length){
+        if (str == null || str.isEmpty() || str.length()>length){
             return false;
         }
         return true;

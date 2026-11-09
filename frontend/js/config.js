@@ -1,10 +1,9 @@
 /**
  * 全局配置
  *
- * 默认走同源相对路径，由 server.js 开发代理转发到各微服务：
- *   /auth /user /note /relation  -> 网关 8000
- *   /search                      -> 搜索服务 8092（网关暂未配置该路由）
- *   /file                        -> OSS 服务 8081（网关暂未配置该路由）
+ * 默认走同源相对路径，由 server.js 开发代理统一转发到网关 8000：
+ *   /auth /user /note /relation /search /count /file -> 网关 8000
+ *   /minio                                           -> 对象存储 9000
  *
  * 也可以在「接口联调」页面里临时填写直连地址（需要后端开启 CORS）。
  */

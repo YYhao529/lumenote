@@ -126,7 +126,7 @@ export function relativeTime(value) {
 }
 
 export function hashHue(text) {
-  const str = String(text || '时光笔记');
+  const str = String(text || '拾光笔记');
   let hash = 0;
   for (let i = 0; i < str.length; i += 1) {
     hash = (hash * 31 + str.charCodeAt(i)) >>> 0;
@@ -136,8 +136,8 @@ export function hashHue(text) {
 }
 
 export function initials(name) {
-  const text = String(name || '时光笔记').trim();
-  if (!text) return '小';
+  const text = String(name || '拾光笔记').trim();
+  if (!text) return '拾';
   return text.slice(0, 1).toUpperCase();
 }
 

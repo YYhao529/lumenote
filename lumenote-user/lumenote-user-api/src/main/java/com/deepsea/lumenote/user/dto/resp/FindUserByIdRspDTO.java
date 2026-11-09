@@ -25,6 +25,11 @@ public class FindUserByIdRspDTO {
     private String nickname;
 
     /**
+     * 拾光笔记号（个人主页展示用）
+     */
+    private String lumenoteId;
+
+    /**
      * 头像
      */
     private String avatar;

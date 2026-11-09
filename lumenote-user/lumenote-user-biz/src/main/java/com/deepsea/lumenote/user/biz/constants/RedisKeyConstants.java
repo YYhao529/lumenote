@@ -3,7 +3,7 @@ package com.deepsea.lumenote.user.biz.constants;
 public class RedisKeyConstants {
 
     /**
-     * 时光笔记全局 ID 生成器
+     * 拾光笔记全局 ID 生成器
      */
     public static final String LUMENOTE_ID_GENERATOR_KEY = "lumenote.id.generator";
 

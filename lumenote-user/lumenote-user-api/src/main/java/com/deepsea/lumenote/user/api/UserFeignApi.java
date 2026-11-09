@@ -24,10 +24,22 @@ public interface UserFeignApi {
     Response<Long> registerUser(@RequestBody RegisterUserReqDTO registerUserReqDTO);
 
     /**
-     * 根据手机号查询用户信息
+     * 根据手机号查询用户信息（只返回 ID，不返回密码密文）
      */
     @PostMapping(PREFIX + "/findByPhone")
     Response<FindUserByPhoneRspDTO> findByPhone(@RequestBody FindUserByPhoneReqDTO findUserByPhoneReqDTO);
+
+    /**
+     * 校验手机号 + 密码，匹配返回用户 ID，否则返回 null
+     */
+    @PostMapping(PREFIX + "/password/verify")
+    Response<Long> verifyPassword(@RequestBody VerifyPasswordReqDTO verifyPasswordReqDTO);
+
+    /**
+     * 按用户 ID 校验密码（修改密码前校验原密码）
+     */
+    @PostMapping(PREFIX + "/password/verifyById")
+    Response<Boolean> verifyPasswordByUserId(@RequestBody VerifyPasswordByUserIdReqDTO verifyPasswordByUserIdReqDTO);
 
     /**
      * 修改密码

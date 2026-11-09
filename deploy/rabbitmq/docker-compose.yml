@@ -1,0 +1,25 @@
+name: lumenote-rabbitmq
+
+services:
+  rabbitmq:
+    image: rabbitmq:${RABBITMQ_VERSION:-3.13-management-alpine}
+    container_name: rabbitmq
+    # 节点名是 rabbit@<hostname>，会写进数据目录；hostname 必须固定，
+    # 否则容器重建后节点名对不上，启动会报 "Cannot change node name"
+    hostname: rabbitmq
+    restart: unless-stopped
+    ports:
+      - "${RABBITMQ_PORT:-5672}:5672"       # AMQP
+      - "${RABBITMQ_MGMT_PORT:-15672}:15672" # 管理后台
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER:-admin}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS:?请在 .env 设置 RABBITMQ_DEFAULT_PASS}
+      TZ: Asia/Shanghai
+    volumes:
+      # 数据（含 .erlang.cookie 与节点元数据）绑定挂载到宿主机
+      - ${RABBITMQ_DATA_DIR:-/opt/lumenote/rabbitmq/data}:/var/lib/rabbitmq
+      - ./conf/rabbitmq.conf:/etc/rabbitmq/conf.d/99-lumenote.conf:ro
+    ulimits:
+      nofile:
+        soft: 65535
+        hard: 65535

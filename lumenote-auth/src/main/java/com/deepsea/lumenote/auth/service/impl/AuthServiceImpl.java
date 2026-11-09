@@ -14,15 +14,14 @@ import com.deepsea.lumenote.auth.model.vo.user.UpdatePasswordReqVO;
 import com.deepsea.lumenote.auth.model.vo.user.UserLoginReqVO;
 import com.deepsea.lumenote.auth.rpc.UserRpcService;
 import com.deepsea.lumenote.auth.service.AuthService;
-import com.deepsea.lumenote.user.dto.resp.FindUserByPhoneRspDTO;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.Objects;
+import java.util.concurrent.TimeUnit;
 
 @Service
 @Slf4j
@@ -30,8 +29,6 @@ public class AuthServiceImpl implements AuthService {
 
     @Autowired
     private RedisTemplate<String, Object> redisTemplate;
-    @Autowired
-    private PasswordEncoder passwordEncoder;
     @Autowired
     private UserRpcService userRpcService;
 
@@ -61,11 +58,26 @@ public class AuthServiceImpl implements AuthService {
 
                 // 构建验证码 Redis Key
                 String key = RedisKeyConstants.buildVerificationCodeKey(phone);
+                String attemptsKey = RedisKeyConstants.buildVerificationCodeAttemptsKey(phone);
                 // 查询存储在 Redis 中该用户的登录验证码
                 String sentCode = (String) redisTemplate.opsForValue().get(key);
 
+                if (StringUtils.isBlank(sentCode)) {
+                    throw new BizException(ResponseCodeEnum.VERIFICATION_CODE_ERROR);
+                }
+
                 // 判断用户提交的验证码与 Redis 中的验证码是否一致
                 if (!StringUtils.equals(verificationCode, sentCode)) {
+                    // 记录错误次数，10 分钟内同一手机号最多错 5 次
+                    Long attempts = redisTemplate.opsForValue().increment(attemptsKey);
+                    if (Objects.nonNull(attempts) && attempts == 1L) {
+                        redisTemplate.expire(attemptsKey, 10, TimeUnit.MINUTES);
+                    }
+                    if (Objects.nonNull(attempts) && attempts >= 5L) {
+                        // 错误次数过多：作废当前验证码，强制重新获取，防止暴力枚举
+                        redisTemplate.delete(key);
+                        throw new BizException(ResponseCodeEnum.VERIFICATION_CODE_TOO_MANY_ATTEMPTS);
+                    }
                     throw new BizException(ResponseCodeEnum.VERIFICATION_CODE_ERROR);
                 }
 
@@ -77,31 +89,27 @@ public class AuthServiceImpl implements AuthService {
                     throw new BizException(ResponseCodeEnum.LOGIN_FAIL);
                 }
 
+                // 验证码一次性使用：注册成功后再删除，避免下游失败导致用户必须重新获取验证码
+                redisTemplate.delete(key);
+                redisTemplate.delete(attemptsKey);
+
                 userId = userIdTmp;
                 break;
             case PASSWORD:  // 密码登录
                 String password = userLoginReqVO.getPassword();
 
-                // 根据手机号查询
-                FindUserByPhoneRspDTO findUserByPhoneRspDTO = userRpcService.findByPhone(phone);
-
-                // 判断该手机号是否注册
-                if (Objects.isNull(findUserByPhoneRspDTO)) {
-                    throw new BizException(ResponseCodeEnum.USER_NOT_FOUND);
-                }
-
-                // 拿到密文密码
-                String encodePassword = findUserByPhoneRspDTO.getPassword();
-
-                // 匹配密码是否一致
-                boolean isPasswordCorrect = passwordEncoder.matches(password, encodePassword);
-
-                // 如果不正确，则抛出业务异常，提示用户名或者密码不正确
-                if (!isPasswordCorrect) {
+                if (StringUtils.isBlank(password)) {
                     throw new BizException(ResponseCodeEnum.PHONE_OR_PASSWORD_ERROR);
                 }
 
-                userId = findUserByPhoneRspDTO.getId();
+                // RPC: 用户服务内部完成密码校验，密码密文不再出服务
+                Long userIdByPassword = userRpcService.verifyPassword(phone, password);
+
+                if (Objects.isNull(userIdByPassword)) {
+                    throw new BizException(ResponseCodeEnum.PHONE_OR_PASSWORD_ERROR);
+                }
+
+                userId = userIdByPassword;
                 break;
             default:
                 break;
@@ -137,13 +145,20 @@ public class AuthServiceImpl implements AuthService {
      */
     @Override
     public Response<?> updatePassword(UpdatePasswordReqVO updatePasswordReqVO) {
-        // 获取新密码
-        String newPassword = updatePasswordReqVO.getNewPassword();
-        // 密码加密
-        String encodePassword = passwordEncoder.encode(newPassword);
+        Long userId = LoginUserContextHolder.getUserId();
+        if (Objects.isNull(userId)) {
+            throw new BizException(ResponseCodeEnum.USER_NOT_FOUND);
+        }
 
-        // RPC: 调用用户服务：更新密码
-        userRpcService.updatePassword(encodePassword);
+        // 原密码校验、新密码加密都在用户服务内部完成；这里只负责让 token 失效
+        boolean updated = userRpcService.updatePassword(
+                updatePasswordReqVO.getOldPassword(), updatePasswordReqVO.getNewPassword());
+        if (!updated) {
+            throw new BizException(ResponseCodeEnum.OLD_PASSWORD_ERROR);
+        }
+
+        // 改密后让该用户所有已签发的 token 失效，强制重新登录
+        StpUtil.logout(userId);
 
         return Response.success();
     }

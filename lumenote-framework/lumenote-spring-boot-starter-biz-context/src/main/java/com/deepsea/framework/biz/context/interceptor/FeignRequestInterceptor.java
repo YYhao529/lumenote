@@ -23,7 +23,10 @@ public class FeignRequestInterceptor implements RequestInterceptor {
             return;
         }
         // 如果不为空则放入请求头中，传递给下游微服务
-        requestTemplate.header(GlobalConstants.USER_ID,userId.toString());
-        log.info("########## feign 请求设置请求头 userId: {}", userId);
+        requestTemplate.header(GlobalConstants.USER_ID, userId.toString());
+        // 每次 Feign 调用都会走到这里，INFO 会刷屏，只在 DEBUG 下记录
+        if (log.isDebugEnabled()) {
+            log.debug("feign 透传 userId: {}, target: {}", userId, requestTemplate.feignTarget().name());
+        }
     }
 }

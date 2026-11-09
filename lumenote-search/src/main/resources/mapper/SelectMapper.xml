@@ -18,4 +18,20 @@
             and n.id = #{noteId}
         </if>
     </select>
+
+    <!-- 用户索引：用户基础信息 + 计数服务维护的笔记数 / 粉丝数 -->
+    <select id="selectEsUserIndexData" resultType="java.util.Map">
+        select u.id,
+               u.nickname,
+               u.avatar,
+               u.lumenote_id,
+               IFNULL(uc.note_total, 0) as note_total,
+               IFNULL(uc.fans_total, 0) as fans_total
+        from t_user u
+        left join t_user_count uc on u.id = uc.user_id
+        where u.is_deleted = 0 and u.`status` = 1
+        <if test="userId!=null">
+            and u.id = #{userId}
+        </if>
+    </select>
 </mapper>

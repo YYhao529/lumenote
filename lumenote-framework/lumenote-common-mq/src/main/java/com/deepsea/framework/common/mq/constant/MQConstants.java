@@ -77,6 +77,14 @@ public final class MQConstants {
     public static final String DELETE_NOTE_REDIS_CACHE_ROUTING_KEY =
             NOTE_SERVICE_PREFIX + "redis.cache.delete";
 
+    // Redis 笔记缓存延迟失效队列（消息 TTL 1 秒后死信到上面的失效队列，无需 RabbitMQ 延迟插件）
+    public static final String NOTE_REDIS_CACHE_DELAY_QUEUE =
+            NOTE_SERVICE_PREFIX + "redis.cache.delete.delay.queue";
+
+    // Redis 笔记缓存延迟失效路由键
+    public static final String DELETE_NOTE_REDIS_CACHE_DELAY_ROUTING_KEY =
+            NOTE_SERVICE_PREFIX + "redis.cache.delete.delay";
+
     // ---------------------- 关注数、粉丝数落库消息 ----------------------
     // 关注数、粉丝数落库消息交换机
     public static final String COUNT_FOLLOWINGS_FANS_TO_DB_EXCHANGE = COUNT_SERVICE_PREFIX + "followings.fans.2db.direct";

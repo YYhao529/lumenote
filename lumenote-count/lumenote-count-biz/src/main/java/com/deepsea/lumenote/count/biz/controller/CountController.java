@@ -4,6 +4,7 @@ import com.deepsea.framework.biz.operationlog.aspect.ApiOperationLog;
 import com.deepsea.framework.common.response.Response;
 import com.deepsea.lumenote.count.biz.model.vo.FindNoteCountReqVO;
 import com.deepsea.lumenote.count.biz.model.vo.FindUserCountReqVO;
+import com.deepsea.lumenote.count.biz.model.vo.FindUserCountsReqVO;
 import com.deepsea.lumenote.count.biz.model.vo.NoteCountRspVO;
 import com.deepsea.lumenote.count.biz.model.vo.UserCountRspVO;
 import com.deepsea.lumenote.count.biz.service.CountService;
@@ -14,6 +15,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 /**
  * 计数查询
@@ -36,5 +39,11 @@ public class CountController {
     @ApiOperationLog(description = "查询用户计数")
     public Response<UserCountRspVO> findUserCount(@RequestBody @Validated FindUserCountReqVO findUserCountReqVO) {
         return Response.success(countService.findUserCount(findUserCountReqVO));
+    }
+
+    @PostMapping("/user/batch")
+    @ApiOperationLog(description = "批量查询用户计数")
+    public Response<List<UserCountRspVO>> findUserCounts(@RequestBody @Validated FindUserCountsReqVO findUserCountsReqVO) {
+        return Response.success(countService.findUserCounts(findUserCountsReqVO));
     }
 }

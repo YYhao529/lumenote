@@ -18,7 +18,9 @@ import com.deepsea.lumenote.user.relation.biz.enums.LuaResultEnum;
 import com.deepsea.lumenote.user.relation.biz.enums.ResponseCodeEnum;
 import com.deepsea.lumenote.user.relation.biz.model.dto.FollowUserMqDTO;
 import com.deepsea.lumenote.user.relation.biz.model.dto.UnfollowUserMqDTO;
+import com.deepsea.lumenote.user.relation.biz.model.dto.UserCountRspDTO;
 import com.deepsea.lumenote.user.relation.biz.model.vo.*;
+import com.deepsea.lumenote.user.relation.biz.rpc.CountRpcService;
 import com.deepsea.lumenote.user.relation.biz.rpc.UserRpcService;
 import com.deepsea.lumenote.user.relation.biz.service.RelationService;
 import jakarta.annotation.Resource;
@@ -46,6 +48,8 @@ public class RelationServiceImpl implements RelationService {
 
     @Autowired
     private UserRpcService userRpcService;
+    @Autowired
+    private CountRpcService countRpcService;
     @Autowired
     private RedisTemplate<String, Object> redisTemplate;
     @Autowired
@@ -271,13 +275,13 @@ public class RelationServiceImpl implements RelationService {
 
             if (pageNo > totalPage) {
                 // 页码超出范围，返回空列表
-                return PageResponse.success(Collections.emptyList(), pageNo, total);
+                return PageResponse.success(Collections.emptyList(), pageNo, total, limit);
             }
 
             followingListCache = redisTemplate.opsForZSet().reverseRange(followingListRedisKey, start, end);
 
             if (CollUtil.isEmpty(followingListCache)) {
-                return PageResponse.success(Collections.emptyList(), pageNo, total);
+                return PageResponse.success(Collections.emptyList(), pageNo, total, limit);
             }
 
             // 如果缓存不为空，则取出关注的用户 ID 列表
@@ -292,7 +296,7 @@ public class RelationServiceImpl implements RelationService {
             long totalPage = PageResponse.getTotalPage(total, limit);
             if (total == 0 || pageNo > totalPage) {
                 // 如果该用户没有关注任何人，或者页码超出范围直接返回空列表
-                return PageResponse.success(Collections.emptyList(), pageNo, total);
+                return PageResponse.success(Collections.emptyList(), pageNo, total, limit);
             }
 
             // 分页查询
@@ -311,7 +315,7 @@ public class RelationServiceImpl implements RelationService {
 
         // RPC: 调用用户服务，并将 DTO 转换为 VO
         List<FindFollowingUserRspVO> findFollowingUserRspVOS = rpcUserServiceAndDTO2VO(followingUserIds);
-        return PageResponse.success(findFollowingUserRspVOS, pageNo, total);
+        return PageResponse.success(findFollowingUserRspVOS, pageNo, total, limit);
     }
 
     /**
@@ -340,14 +344,14 @@ public class RelationServiceImpl implements RelationService {
 
             // 判断页码是否超出范围
             if (pageNo > totalPage) {
-                return PageResponse.success(Collections.emptyList(), pageNo, total);
+                return PageResponse.success(Collections.emptyList(), pageNo, total, limit);
             }
 
             // 缓存中有粉丝 id 数据
             Set<Object> range = redisTemplate.opsForZSet().reverseRange(fansListRedisKey, start, end);
 
             if (CollUtil.isEmpty(range)) {
-                return PageResponse.success(Collections.emptyList(), pageNo, total);
+                return PageResponse.success(Collections.emptyList(), pageNo, total, limit);
             }
 
             // 将粉丝 id 放到集合里
@@ -363,14 +367,14 @@ public class RelationServiceImpl implements RelationService {
             long totalPage = PageResponse.getTotalPage(total, limit);
             // 如果没有粉丝\页码超出范围\页码超过500，直接返回空列表
             if (total == 0 || pageNo > totalPage || pageNo > 500) {
-                return PageResponse.success(Collections.emptyList(), pageNo, total);
+                return PageResponse.success(Collections.emptyList(), pageNo, total, limit);
             }
 
             // 分页查询
             List<FansDO> fansDOS = fansDOMapper.selectPageListByUserId(userId, start, limit);
 
             if (CollUtil.isEmpty(fansDOS)) {
-                return PageResponse.success(Collections.emptyList(), pageNo, total);
+                return PageResponse.success(Collections.emptyList(), pageNo, total, limit);
             }
 
             // 将粉丝 id 放到集合里
@@ -386,7 +390,7 @@ public class RelationServiceImpl implements RelationService {
         List<FindFansUserRspVO> findFansUserRspVOList =
                 rpcUserServiceAndCountServiceAndDTO2VO(fansUserIds);
 
-        return PageResponse.success(findFansUserRspVOList, pageNo, total);
+        return PageResponse.success(findFansUserRspVOList, pageNo, total, limit);
     }
 
     /**
@@ -422,18 +426,21 @@ public class RelationServiceImpl implements RelationService {
             return Collections.emptyList();
         }
 
-        // TODO RPC: 批量查询用户的计数数据（笔记总数、粉丝总数）
-
+        // RPC: 批量查询用户的计数数据（笔记总数、粉丝总数）
+        Map<Long, UserCountRspDTO> countMap = countRpcService.findUserCounts(fansUserIds);
 
         // 填充信息并返回
         return findUserByIdRspDTOS.stream()
-                .map(dto -> FindFansUserRspVO.builder()
-                        .userId(dto.getId())
-                        .avatar(dto.getAvatar())
-                        .nickname(dto.getNickname())
-                        .fansTotal(0L)  // TODO: 这块的数据暂无，后续补充
-                        .noteTotal(0L)   // TODO: 这块的数据暂无，后续补充
-                        .build())
+                .map(dto -> {
+                    UserCountRspDTO count = countMap.get(dto.getId());
+                    return FindFansUserRspVO.builder()
+                            .userId(dto.getId())
+                            .avatar(dto.getAvatar())
+                            .nickname(dto.getNickname())
+                            .fansTotal(Objects.isNull(count) ? 0L : count.getFansTotal())
+                            .noteTotal(Objects.isNull(count) ? 0L : count.getNoteTotal())
+                            .build();
+                })
                 .toList();
     }
 

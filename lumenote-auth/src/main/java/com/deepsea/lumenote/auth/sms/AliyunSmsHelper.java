@@ -56,8 +56,8 @@ public class AliyunSmsHelper {
                     .setTemplateParam(templateParam)
                     .setPhoneNumber(mobile);
 
-            // 调用阿里云 SDK 发送短信
-            log.info("==> 开始短信发送, phone: {}, signName: {}, templateCode: {}, templateParam: {}", mobile, signName, templateCode, templateParam);
+            // 调用阿里云 SDK 发送短信（日志中不打印包含验证码的模板参数）
+            log.info("==> 开始短信发送, phone: {}, signName: {}, templateCode: {}", mobile, signName, templateCode);
 
             // 发送短信
             SendSmsVerifyCodeResponse response = client.sendSmsVerifyCodeWithOptions(request, new RuntimeOptions());

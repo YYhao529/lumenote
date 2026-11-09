@@ -1,0 +1,26 @@
+# Kibana 7.3.0（必须与 Elasticsearch 7.3.0 完全同版本）
+# 容器内路径：/usr/share/kibana/config/kibana.yml
+
+server.name: lumenote-kibana
+server.host: "0.0.0.0"
+server.port: 5601
+
+# 同一个 compose 网络里直接用服务名；ES 未开 xpack security，所以不带账号密码
+elasticsearch.hosts: ["http://elasticsearch:9200"]
+elasticsearch.requestTimeout: 60000
+elasticsearch.shardTimeout: 30000
+
+# 服务端 ES 已关闭 security，这里也关掉，否则会要求输入账号
+xpack.security.enabled: false
+xpack.reporting.enabled: false
+
+# 打开 Stack Monitoring，用来看 ES 的堆、索引、分片、请求量
+xpack.monitoring.enabled: true
+xpack.monitoring.ui.container.elasticsearch.enabled: true
+
+# 中文界面
+i18n.locale: "zh-CN"
+
+logging:
+  verbose: false
+  quiet: false

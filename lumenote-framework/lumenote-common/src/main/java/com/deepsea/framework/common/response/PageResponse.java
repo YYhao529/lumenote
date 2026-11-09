@@ -15,21 +15,6 @@ public class PageResponse<T> extends Response<List<T>> {
     private long pageSize; // 每页展示的数据量
     private long totalPage; // 总页数
 
-    public static <T> PageResponse<T> success(List<T> data, long pageNo, long totalCount) {
-        PageResponse<T> pageResponse = new PageResponse<>();
-        pageResponse.setSuccess(true);
-        pageResponse.setData(data);
-        pageResponse.setPageNo(pageNo);
-        pageResponse.setTotalCount(totalCount);
-        // 每页展示的数据量
-        long pageSize = 10L;
-        pageResponse.setPageSize(pageSize);
-        // 计算总页数
-        long totalPage = (totalCount + pageSize - 1) / pageSize;
-        pageResponse.setTotalPage(totalPage);
-        return pageResponse;
-    }
-
     public static <T> PageResponse<T> success(List<T> data, long pageNo, long totalCount, long pageSize) {
         PageResponse<T> pageResponse = new PageResponse<>();
         pageResponse.setSuccess(true);

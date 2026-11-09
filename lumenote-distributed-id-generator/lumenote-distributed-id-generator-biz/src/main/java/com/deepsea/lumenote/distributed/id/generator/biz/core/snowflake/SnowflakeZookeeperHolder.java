@@ -47,8 +47,12 @@ public class SnowflakeZookeeperHolder {
 
     public boolean init() {
         try {
-            CuratorFramework curator = createWithOptions(connectionString, new RetryUntilElapsed(1000, 4), 10000, 6000);
+            // 注意：这台 Windows 开发机上 ZooKeeper 的"首次"会话握手要 ~30 秒才完成
+            //（ZK 服务端和网络本身正常，Python 直连握手只要 50ms，属于 JVM 侧的首连卡顿）。
+            // Leaf 原始参数是 重试 4 秒 + 会话超时 6 秒，必然超时失败，所以这里放宽预算并显式等待连接。
+            CuratorFramework curator = createWithOptions(connectionString, new RetryUntilElapsed(1000, 70000), 30000, 60000);
             curator.start();
+            curator.blockUntilConnected(70, TimeUnit.SECONDS);
             Stat stat = curator.checkExists().forPath(PATH_FOREVER);
             if (stat == null) {
                 //不存在根节点,机器第一次启动,创建/snowflake/ip:port-000000000,并上传数据

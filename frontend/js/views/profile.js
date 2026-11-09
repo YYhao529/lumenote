@@ -73,11 +73,11 @@ export default {
         <div class="profile-head">
           <div class="profile-avatar">${avatar(me, 'xl', { ring: true })}</div>
           <div class="profile-info">
-            <div class="profile-name">${escapeHtml(me.nickname || '时光笔记用户')}
+            <div class="profile-name">${escapeHtml(me.nickname || '拾光笔记用户')}
               <span class="badge badge-brand">我</span>
             </div>
             <div class="profile-id">
-              <span>用户 ID <code>${escapeHtml(String(me.id))}</code></span>
+              <span>${me.lumenoteId ? `拾光笔记号 <code>${escapeHtml(me.lumenoteId)}</code>` : `用户 ID <code>${escapeHtml(String(me.id))}</code>`}</span>
               <span class="meta-dot"></span>
               <span>手机号 ${escapeHtml(maskPhone(auth.phone))}</span>
             </div>
@@ -306,7 +306,7 @@ export default {
             </div>
 
             <div class="field">
-              <label class="field-label" for="edit-lumenote">时光笔记号</label>
+              <label class="field-label" for="edit-lumenote">拾光笔记号</label>
               <input class="input" id="edit-lumenote" type="text" maxlength="15"
                 placeholder="留空则不修改">
               <span class="field-hint">6 - 15 位字母、数字或下划线</span>
@@ -407,7 +407,7 @@ export default {
               return;
             }
             if (lumenoteId && !LUMENOTE_ID_RE.test(lumenoteId)) {
-              showError('时光笔记号需要 6 - 15 位字母、数字或下划线');
+              showError('拾光笔记号需要 6 - 15 位字母、数字或下划线');
               return;
             }
             if (introduction.length > 100) {
@@ -482,13 +482,18 @@ export default {
     const openChangePassword = () => {
       openDialog({
         title: '修改密码',
-        desc: '修改成功后，下次登录请使用新密码。',
+        desc: '修改成功后需要重新登录。',
         size: 'sm',
         body: `<div class="stack">
           <div class="field">
+            <label class="field-label" for="old-password">原密码</label>
+            <input class="input" id="old-password" type="password" autocomplete="current-password"
+              placeholder="请输入当前密码">
+          </div>
+          <div class="field">
             <label class="field-label" for="new-password">新密码</label>
             <input class="input" id="new-password" type="password" autocomplete="new-password"
-              placeholder="至少 6 位">
+              placeholder="6-20 位">
           </div>
           <div class="field">
             <label class="field-label" for="confirm-password">确认新密码</label>
@@ -502,18 +507,25 @@ export default {
         onMount({ dialog, close }) {
           const errorEl = dialog.querySelector('#password-error');
           const saveBtn = dialog.querySelector('#save-password');
+          const oldInput = dialog.querySelector('#old-password');
           const newInput = dialog.querySelector('#new-password');
           const confirmInput = dialog.querySelector('#confirm-password');
 
           dialog.querySelector('[data-role="cancel"]')?.addEventListener('click', () => close());
 
           saveBtn?.addEventListener('click', async () => {
+            const oldPassword = oldInput.value;
             const password = newInput.value;
             const confirm = confirmInput.value;
 
             errorEl.hidden = true;
-            if (password.length < 6) {
-              errorEl.textContent = '新密码至少 6 位';
+            if (!oldPassword) {
+              errorEl.textContent = '请输入原密码';
+              errorEl.hidden = false;
+              return;
+            }
+            if (password.length < 6 || password.length > 20) {
+              errorEl.textContent = '新密码长度需为 6-20 位';
               errorEl.hidden = false;
               return;
             }
@@ -525,9 +537,12 @@ export default {
 
             setLoading(saveBtn, true);
             try {
-              await api.updatePassword(password, { signal: ctx.signal });
+              await api.updatePassword(oldPassword, password, { signal: ctx.signal });
               close();
-              toast('密码已更新', 'success');
+              // 后端会注销该用户所有 token，本地也必须清理并回到登录页
+              auth.clearSession();
+              toast('密码已更新，请重新登录', 'success');
+              navigate('/login', { redirect: '/me' });
             } catch (err) {
               if (isAbortError(err) || ctx.signal.aborted) return;
               errorEl.textContent = err.message || '修改密码失败';

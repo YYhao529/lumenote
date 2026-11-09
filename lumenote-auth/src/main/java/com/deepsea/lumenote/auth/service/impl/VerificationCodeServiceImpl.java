@@ -50,15 +50,20 @@ public class VerificationCodeServiceImpl implements VerificationCodeService {
         // 生成 6 位随机数字验证码
         String verificationCode = RandomUtil.randomNumbers(6);
 
-        log.info("==> 手机号: {}, 已生成验证码：【{}】", phone, verificationCode);
+        // 只在 debug 级别输出验证码，生产环境默认不打印
+        log.debug("==> 手机号: {}, 已生成验证码：【{}】", phone, verificationCode);
+
+        // 先写入 Redis，再异步发送短信；发送失败则删除 Redis 中的验证码，避免「收不到码还被限频」
+        redisTemplate.opsForValue().set(key, verificationCode, 3, TimeUnit.MINUTES);
 
         // 调用第三方短信发送服务
-        threadPoolTaskExecutor.submit(()->{
-            aliyunSmsHelper.sendMessage(phone, verificationCode, 5);
+        threadPoolTaskExecutor.submit(() -> {
+            boolean sent = aliyunSmsHelper.sendMessage(phone, verificationCode, 3);
+            if (!sent) {
+                redisTemplate.delete(key);
+                log.error("==> 手机号: {}, 短信验证码发送失败，已回滚 Redis 验证码", phone);
+            }
         });
-
-        // 存储验证码到 redis，并设置过期时间为 3 分钟
-        redisTemplate.opsForValue().set(key, verificationCode,3, TimeUnit.MINUTES);
 
         return Response.success();
     }

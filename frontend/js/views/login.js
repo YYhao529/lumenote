@@ -25,19 +25,19 @@ export default {
       <div class="auth-card">
         <aside class="auth-aside">
           <a class="brand" href="#/explore" aria-label="返回发现页">
-            <span class="brand-mark" aria-hidden="true">小</span>
-            <span class="brand-name">时光笔记</span>
+            <span class="brand-mark" aria-hidden="true">${icons.brandMark()}</span>
+            <span class="brand-name">拾光笔记</span>
           </a>
           <div class="auth-aside-body">
             <h1>记录生活，<br>也<em>发现同好</em>。</h1>
             <p class="auth-aside-sub">分享你的兴趣瞬间</p>
           </div>
-          <div class="auth-aside-foot">© 2026 时光笔记</div>
+          <div class="auth-aside-foot">© 2026 拾光笔记</div>
         </aside>
 
         <div class="auth-form">
           <div class="auth-form-head">
-            <h2>欢迎来到时光笔记</h2>
+            <h2>欢迎来到拾光笔记</h2>
             <p>${auth.phone ? `上次登录手机号：${escapeHtml(auth.phone)}` : '使用手机号登录或注册'}</p>
           </div>
 

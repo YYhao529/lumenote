@@ -6,6 +6,26 @@
 const wrap = (body, extra = '') =>
   `<svg viewBox="0 0 24 24" aria-hidden="true"${extra ? ` ${extra}` : ''}>${body}</svg>`;
 
+/**
+ * 品牌标记：拾起的一束光（日出 + 笔记页脚线）。
+ * 每次调用生成独立的渐变 id，避免同页多处使用时 id 冲突。
+ */
+let brandMarkSeq = 0;
+const brandMark = () => {
+  const id = `brandMarkGrad${(brandMarkSeq += 1)}`;
+  return `<svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <defs>
+      <linearGradient id="${id}" x1="4" y1="2" x2="36" y2="38" gradientUnits="userSpaceOnUse">
+        <stop stop-color="#8ea1ff"/><stop offset="0.52" stop-color="#4a5cf5"/><stop offset="1" stop-color="#8b5cf6"/>
+      </linearGradient>
+    </defs>
+    <rect width="40" height="40" rx="12" fill="url(#${id})"/>
+    <circle cx="20" cy="16.5" r="6.8" fill="#fff" fill-opacity="0.96"/>
+    <path d="M7 27.5h26" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-opacity="0.92"/>
+    <path d="M13 33h14" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-opacity="0.5"/>
+  </svg>`;
+};
+
 const icons = {
   sparkles: () =>
     wrap(
@@ -155,6 +175,7 @@ const icons = {
     ),
   moon: () =>
     wrap('<path d="M20.5 14.3a8.5 8.5 0 1 1-10.8-10.8 7 7 0 0 0 10.8 10.8z"/>'),
+  brandMark,
 };
 
 export { icons };

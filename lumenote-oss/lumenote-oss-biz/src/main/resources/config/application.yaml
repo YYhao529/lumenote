@@ -2,6 +2,20 @@ server:
   port: 8081 # 项目启动的端口
 
 spring:
+  # SCA 2023.0.x 起，推荐用 spring.config.import 拉远程配置（bootstrap 方式已废弃）。
+  # 实测 bootstrap.yaml 里的 config 段在本组合（Boot 3.4 + Cloud 2024 + SCA 2023.0.3.4）下不生效，
+  # 远程配置压根不会被拉取，所以显式声明导入。optional: 前缀保证 Nacos 上没这条配置也能启动。
+  config:
+    import:
+      - optional:nacos:lumenote-oss-dev.yaml?group=DEFAULT_GROUP&refreshEnabled=true
+  cloud:
+    nacos:
+      config:
+        server-addr: 192.168.100.111:8848
+        namespace: lumenote
+        group: DEFAULT_GROUP
+        file-extension: yaml
+        refresh-enabled: true
   servlet:
     multipart:
       # 上传大小限制：图片单张最大 10MB（前端限制），视频给足余量
@@ -10,4 +24,8 @@ spring:
       max-request-size: 210MB
 
 storage:
-  type: aliyun  # 对象存储类型
+  # 本地开发走 MinIO（虚拟机 Docker 里的 deepsea-lumenote 桶）；
+  # 阿里云 OSS 需要真实 AK/SK，只在线上用。
+  # 注：Nacos 的 lumenote-oss-dev.yaml 也写了 storage.type=minio，
+  # 但实测没有覆盖到本地配置（配置中心是否真生效待查），所以本地默认值也改成 minio。
+  type: minio  # 对象存储类型

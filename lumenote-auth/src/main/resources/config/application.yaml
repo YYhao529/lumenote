@@ -1,6 +1,22 @@
 server:
   port: 8080  # 项目启动的端口
 
+spring:
+  # 远程配置走 spring.config.import（bootstrap 方式在 Boot 3.4 + Cloud 2024 下不生效）
+  config:
+    import:
+      - optional:nacos:lumenote-auth-dev.yaml?group=DEFAULT_GROUP&refreshEnabled=true
+  cloud:
+    nacos:
+      config:
+        server-addr: 192.168.100.111:8848
+        namespace: lumenote
+        group: DEFAULT_GROUP
+        file-extension: yaml
+        refresh-enabled: true
+  profiles:
+    active: dev
+
 ############## Sa-Token 配置 (文档: https://sa-token.cc) ##############
 sa-token:
   # token 名称（同时也是 cookie 名称）

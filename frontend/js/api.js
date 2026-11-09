@@ -188,10 +188,10 @@ export const api = {
   logout: (options = {}) =>
     request('/auth/logout', { ...options, needAuth: true, timeout: 8000 }),
 
-  updatePassword: (newPassword, options = {}) =>
+  updatePassword: (oldPassword, newPassword, options = {}) =>
     request('/auth/password/update', {
       ...options,
-      data: { newPassword },
+      data: { oldPassword, newPassword },
       needAuth: true,
     }),
 

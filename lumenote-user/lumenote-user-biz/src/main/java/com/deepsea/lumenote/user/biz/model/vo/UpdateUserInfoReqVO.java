@@ -28,7 +28,7 @@ public class UpdateUserInfoReqVO {
     private String nickname;
 
     /**
-     * 时光笔记 ID
+     * 拾光笔记 ID
      */
     private String lumenoteId;
 

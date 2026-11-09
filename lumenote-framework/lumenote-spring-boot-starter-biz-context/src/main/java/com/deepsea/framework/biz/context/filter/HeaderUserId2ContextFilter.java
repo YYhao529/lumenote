@@ -14,6 +14,10 @@ import java.io.IOException;
 
 /**
  * 提取请求头中的用户 ID 保存到上下文中，方便后面使用
+ *
+ * <p>注意：这个过滤器对<b>每个请求</b>都会执行，日志级别必须是 DEBUG，
+ * 否则健康检查、静态资源之类的请求会把日志刷满。排查问题时把
+ * {@code com.deepsea.framework.biz.context} 的日志级别调成 DEBUG 即可。</p>
  */
 @Slf4j
 public class HeaderUserId2ContextFilter extends OncePerRequestFilter {
@@ -21,28 +25,30 @@ public class HeaderUserId2ContextFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
                                     FilterChain chain) throws ServletException, IOException {
-        // 从请求头中获取用户 ID
+        // 从请求头中获取用户 ID（网关注入，未登录时为空）
         String userId = request.getHeader(GlobalConstants.USER_ID);
 
-        log.info("## HeaderUserId2ContextFilter, 用户 ID: {}", userId);
-
         if (StringUtils.isBlank(userId)) {
-            // 若为空，则直接放行
+            if (log.isDebugEnabled()) {
+                log.debug("未携带用户 ID，直接放行: {} {}", request.getMethod(), request.getRequestURI());
+            }
             chain.doFilter(request, response);
             return;
         }
 
-        // 如果 header 中存在 userId，则设置到 ThreadLocal 中
-        log.info("===== 设置 userId 到 ThreadLocal 中， 用户 ID: {}", userId);
+        if (log.isDebugEnabled()) {
+            log.debug("设置 userId 到上下文, userId: {}, uri: {}", userId, request.getRequestURI());
+        }
         LoginUserContextHolder.setUserId(userId);
 
-       try {
-           // 将请求和响应传递给过滤链中的下一个过滤器。
-           chain.doFilter(request, response);
-       }finally {
-           // 一定要删除 ThreadLocal ，防止内存泄露
-           LoginUserContextHolder.remove();
-           log.info("===== 删除 ThreadLocal， userId: {}", userId);
-       }
+        try {
+            chain.doFilter(request, response);
+        } finally {
+            // 一定要删除 ThreadLocal，防止线程复用时串号 + 内存泄露
+            LoginUserContextHolder.remove();
+            if (log.isDebugEnabled()) {
+                log.debug("清理 userId 上下文, userId: {}", userId);
+            }
+        }
     }
 }

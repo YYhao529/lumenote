@@ -29,10 +29,20 @@ public class SaTokenConfigure {
                 .setAuth(obj -> {
                     log.info("==================> SaReactorFilter,当前请求路径:{}", SaHolder.getRequest().getRequestPath());
 
+                    // CORS 预检请求直接放行，否则浏览器跨域调用会在 OPTIONS 阶段被 401 拦截
+                    if ("OPTIONS".equalsIgnoreCase(SaHolder.getRequest().getMethod())) {
+                        return;
+                    }
+
                     // 登录校验
                     SaRouter.match("/**")   // 拦截所有路由
                             .notMatch("/auth/login") // 排除登录接口
                             .notMatch("/auth/verification/code/send") // 排除验证码发送接口
+                            // 搜索只对游客开放查询接口，重建索引仍需登录
+                            .notMatch("/search/note")
+                            .notMatch("/search/note/hot")
+                            .notMatch("/search/user")
+                            .notMatch("/count/**") // 公开计数对游客开放
                             .check(r->StpUtil.checkLogin()) // 校验是否登录
                     ;
 

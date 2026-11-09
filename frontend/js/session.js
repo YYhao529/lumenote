@@ -20,7 +20,9 @@ export async function resolveMe(options = {}) {
   const profile = await api.findById(found.id, options);
   const me = {
     id: String(found.id),
-    nickname: profile?.nickname || '时光笔记用户',
+    nickname: profile?.nickname || '拾光笔记用户',
+    // 拾光笔记号（个人主页展示；老接口没有这个字段时兜底为空）
+    lumenoteId: profile?.lumenoteId || '',
     avatar: profile?.avatar || '',
     introduction: profile?.introduction || '',
     backgroundImg: profile?.backgroundImg || '',

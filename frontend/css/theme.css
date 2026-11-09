@@ -1,0 +1,787 @@
+/* ==========================================================================
+   拾光笔记 · 视觉重构层（theme.css）
+   --------------------------------------------------------------------------
+   在 base.css / components.css / pages.css 之后加载，只做覆盖、不改原文件，
+   想回退直接删掉 index.html 里这一行 <link> 即可。
+
+   设计方向：「拾光」——把光线收进笔记本。
+     · 主色从偏冷的蓝紫改为更沉稳的靛蓝（indigo → violet），点缀暖金
+     · 背景由三段彩色光晕改为中性底 + 单侧柔光，减少页面噪点
+     · 卡片 / 按钮统一 14~20px 圆角与三层柔光阴影，强调"纸感"
+     · 头部改为毛玻璃，滚动时更轻盈
+   ========================================================================== */
+
+/* 只在浅色模式下覆盖令牌。
+   注意：:root 与 [data-theme='dark'] 特异性相同，而本文件最后加载，
+   如果直接写 :root 会把深色模式的令牌覆盖掉（深色下文字会变隐形）。
+   用 :not() 把深色模式让出来，交给 pages.css 里的 [data-theme='dark'] 令牌。 */
+:root:not([data-theme='dark']) {
+  /* ---- 主色 ---- */
+  --brand: #4a5cf5;
+  --brand-strong: #3b49dd;
+  --brand-deep: #2c37bd;
+  --brand-soft: #eef0ff;
+  --brand-softer: #f6f7ff;
+  --brand-grad: linear-gradient(135deg, #8ea1ff 0%, #4a5cf5 52%, #8b5cf6 100%);
+  --brand-grad-soft: linear-gradient(135deg, #eef1ff 0%, #f4efff 100%);
+
+  /* ---- 暖金点缀（用于高亮、强调标签）---- */
+  --accent: #f5a524;
+  --accent-soft: #fff6e6;
+  --accent-deep: #d98613;
+
+  /* ---- 文字 ---- */
+  --ink: #14162a;
+  --ink-2: #333a5c;
+  --ink-3: #575f86;
+  --muted: #6b7398;
+  --faint: #9aa1bf;
+
+  /* ---- 底色与描边 ---- */
+  --bg: #f6f6fb;
+  --bg-soft: #fafafe;
+  --card: #ffffff;
+  --line: #e8e9f4;
+  --line-strong: #d9dcf0;
+
+  /* ---- 语义色 ---- */
+  --green: #17a673;
+  --green-soft: #e6f8f1;
+  --amber: var(--accent);
+  --amber-soft: var(--accent-soft);
+  --blue: #4a5cf5;
+  --blue-soft: #eef0ff;
+  --danger: #e0493f;
+  --danger-soft: #fdeeec;
+
+  /* ---- 圆角：整体更"纸感"，去掉过大的 26/32 ---- */
+  --radius-xs: 10px;
+  --radius-sm: 12px;
+  --radius: 16px;
+  --radius-lg: 20px;
+  --radius-xl: 26px;
+
+  /* ---- 阴影：三层叠加，近处锐利、远处柔和 ---- */
+  --shadow-xs: 0 1px 2px rgba(20, 22, 42, 0.04);
+  --shadow-sm: 0 2px 8px -4px rgba(20, 22, 42, 0.12), 0 1px 2px rgba(20, 22, 42, 0.04);
+  --shadow-md: 0 12px 28px -18px rgba(30, 35, 80, 0.28), 0 2px 6px rgba(20, 22, 42, 0.04);
+  --shadow-lg: 0 24px 56px -30px rgba(28, 33, 80, 0.36), 0 4px 12px rgba(20, 22, 42, 0.05);
+  --shadow-glow: 0 12px 26px -14px rgba(74, 92, 245, 0.55);
+
+  --header-h: 68px;
+  --maxw: 1280px;
+}
+
+/* --------------------------------------------------------------------------
+   1. 基础层
+   -------------------------------------------------------------------------- */
+
+body {
+  background-color: var(--bg);
+  background-image:
+    radial-gradient(920px 520px at 12% -18%, rgba(142, 161, 255, 0.22), transparent 62%),
+    radial-gradient(760px 460px at 92% -12%, rgba(245, 165, 36, 0.12), transparent 60%);
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+  color: var(--ink);
+  font-size: 15px;
+  line-height: 1.66;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: rgba(74, 92, 245, 0.18);
+  color: var(--ink);
+}
+
+:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+h1, h2, h3, h4 {
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+
+/* 滚动条：细、浅，不抢视觉 */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(120, 130, 180, 0.35) transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background: rgba(120, 130, 180, 0.3);
+  border: 3px solid transparent;
+  background-clip: content-box;
+  border-radius: 999px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(120, 130, 180, 0.5);
+  background-clip: content-box;
+}
+
+/* --------------------------------------------------------------------------
+   2. 头部：毛玻璃 + 细描边
+   -------------------------------------------------------------------------- */
+
+.site-header {
+  background: rgba(255, 255, 255, 0.76);
+  backdrop-filter: saturate(180%) blur(16px);
+  -webkit-backdrop-filter: saturate(180%) blur(16px);
+  border-bottom: 1px solid rgba(232, 233, 244, 0.9);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.6) inset;
+}
+
+.header-inner {
+  height: var(--header-h);
+  max-width: var(--maxw);
+}
+
+/* 品牌标记：SVG 图形代替原来的「小」字 */
+.brand {
+  gap: 9px;
+  font-size: 18.5px;
+  letter-spacing: 0.2px;
+}
+
+.brand-mark {
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+  background: none;
+  box-shadow: 0 8px 18px -10px rgba(74, 92, 245, 0.85);
+  transform: none;
+  overflow: hidden;
+}
+
+.brand-mark svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.brand:hover .brand-mark {
+  transform: translateY(-1px) scale(1.03);
+  box-shadow: 0 12px 22px -10px rgba(74, 92, 245, 0.95);
+}
+
+.brand-name {
+  /* 纯色字标：之前用渐变裁文字，末尾两个字会明显偏蓝，像渲染出错。
+     渐变留给左边的图形标记。 */
+  background: none;
+  -webkit-background-clip: border-box;
+  background-clip: border-box;
+  color: var(--ink);
+  font-weight: 800;
+}
+
+/* 顶部搜索：胶囊 + 内嵌按钮 */
+.header-search {
+  max-width: 520px;
+  height: 40px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: rgba(244, 245, 252, 0.9);
+  transition: background 0.18s var(--ease), border-color 0.18s var(--ease), box-shadow 0.18s var(--ease);
+}
+
+.header-search:focus-within {
+  background: #fff;
+  border-color: rgba(74, 92, 245, 0.35);
+  box-shadow: 0 0 0 4px rgba(74, 92, 245, 0.1);
+}
+
+.header-search input {
+  font-size: 14px;
+  color: var(--ink);
+}
+
+.header-search input::placeholder {
+  color: var(--faint);
+}
+
+.header-search-btn {
+  color: var(--ink-3);
+  border-radius: 999px;
+}
+
+.header-search-btn:hover {
+  background: var(--brand-soft);
+  color: var(--brand);
+}
+
+/* 导航 */
+.nav-link {
+  /* 原样式是 display:block + line-height≈23px 配 38px 高度，
+     文字会贴在顶部（上 2px / 下 17.5px）。改成 flex 居中。 */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  height: 38px;
+  padding: 0 15px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink-2);
+  transition: background 0.16s var(--ease), color 0.16s var(--ease);
+}
+
+.nav-link:hover {
+  background: rgba(74, 92, 245, 0.07);
+  color: var(--brand);
+}
+
+.nav-link.is-active {
+  background: var(--brand);
+  color: #fff;
+  box-shadow: var(--shadow-glow);
+}
+
+.nav-link.is-active:hover {
+  background: var(--brand-strong);
+  color: #fff;
+}
+
+.nav-publish {
+  margin-left: 2px;
+}
+
+.header-menu summary {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  border-color: var(--line);
+  background: #fff;
+}
+
+.header-menu-panel {
+  border-radius: 16px;
+  border-color: var(--line);
+  box-shadow: var(--shadow-lg);
+  padding: 8px;
+}
+
+.header-menu-panel a {
+  border-radius: 10px;
+  font-size: 14px;
+  padding: 10px 12px;
+}
+
+.header-menu-panel a:hover {
+  background: var(--brand-soft);
+  color: var(--brand);
+}
+
+/* --------------------------------------------------------------------------
+   3. 按钮：统一高度 / 圆角 / 三级层次
+   -------------------------------------------------------------------------- */
+
+.btn {
+  height: 42px;
+  padding: 0 18px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  transition: transform 0.16s var(--ease), box-shadow 0.16s var(--ease),
+    background 0.16s var(--ease), color 0.16s var(--ease), border-color 0.16s var(--ease);
+}
+
+.btn:active {
+  transform: translateY(1px) scale(0.995);
+}
+
+.btn-sm {
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 10px;
+  font-size: 13px;
+}
+
+.btn-primary {
+  background: var(--brand-grad);
+  color: #fff;
+  border: none;
+  box-shadow: var(--shadow-glow);
+}
+
+.btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 16px 30px -14px rgba(74, 92, 245, 0.7);
+}
+
+.btn-soft {
+  background: var(--brand-soft);
+  color: var(--brand-strong);
+  border: 1px solid rgba(74, 92, 245, 0.16);
+}
+
+.btn-soft:hover {
+  background: #e6e9ff;
+  transform: translateY(-1px);
+}
+
+.btn-ghost {
+  background: #fff;
+  border: 1px solid var(--line);
+  color: var(--ink-2);
+}
+
+.btn-ghost:hover {
+  border-color: var(--line-strong);
+  background: var(--bg-soft);
+}
+
+/* --------------------------------------------------------------------------
+   4. 表单控件
+   -------------------------------------------------------------------------- */
+
+.input,
+textarea.input,
+select.input {
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: #fff;
+  font-size: 14px;
+  color: var(--ink);
+  transition: border-color 0.16s var(--ease), box-shadow 0.16s var(--ease);
+}
+
+.input::placeholder {
+  color: var(--faint);
+}
+
+.input:hover {
+  border-color: var(--line-strong);
+}
+
+.input:focus,
+textarea.input:focus,
+select.input:focus {
+  border-color: rgba(74, 92, 245, 0.55);
+  box-shadow: 0 0 0 4px rgba(74, 92, 245, 0.1);
+  outline: none;
+}
+
+/* --------------------------------------------------------------------------
+   5. 首页 hero：「把光收进本子」
+   -------------------------------------------------------------------------- */
+
+.hero {
+  border-radius: var(--radius-xl);
+  border: 1px solid rgba(232, 233, 244, 0.9);
+  background:
+    radial-gradient(620px 320px at 88% 12%, rgba(245, 165, 36, 0.14), transparent 62%),
+    radial-gradient(720px 420px at 6% 0%, rgba(142, 161, 255, 0.22), transparent 60%),
+    linear-gradient(160deg, #ffffff 0%, #fbfbff 58%, #f7f6ff 100%);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+
+/* 顶部一道细光，像纸面反光 */
+.hero::after {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.9), transparent);
+}
+
+.eyebrow {
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: #fff;
+  border: 1px solid var(--line);
+  color: var(--ink-3);
+  font-size: 12.5px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  box-shadow: var(--shadow-xs);
+}
+
+.hero h1 {
+  font-size: clamp(34px, 3.4vw, 46px);
+  line-height: 1.16;
+  letter-spacing: -0.035em;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.hero h1 em {
+  font-style: normal;
+  background: linear-gradient(96deg, var(--brand) 0%, #8b5cf6 55%, var(--accent) 130%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.hero h1 em::after {
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(74, 92, 245, 0.28), rgba(245, 165, 36, 0.42));
+  bottom: 0.06em;
+}
+
+.hero-sub {
+  color: var(--ink-3);
+  font-size: 15.5px;
+  max-width: 30em;
+}
+
+.hero-search {
+  height: 58px;
+  padding: 6px 6px 6px 20px;
+  border-radius: 16px;
+  background: #fff;
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-md);
+}
+
+.hero-search:focus-within {
+  border-color: rgba(74, 92, 245, 0.45);
+  box-shadow: 0 0 0 4px rgba(74, 92, 245, 0.1), var(--shadow-md);
+}
+
+.hero-search input {
+  font-size: 15px;
+}
+
+.hero-search .btn {
+  height: 46px;
+  padding: 0 22px;
+  border-radius: 12px;
+}
+
+.hero-chips {
+  gap: 8px;
+}
+
+.hero-chips .chip,
+.chip {
+  height: 32px;
+  padding: 0 13px;
+  border-radius: 999px;
+  background: #fff;
+  border: 1px solid var(--line);
+  color: var(--ink-3);
+  font-size: 13px;
+  font-weight: 600;
+  transition: all 0.16s var(--ease);
+}
+
+.chip:hover {
+  border-color: rgba(74, 92, 245, 0.35);
+  color: var(--brand);
+  background: var(--brand-softer);
+  transform: translateY(-1px);
+}
+
+/* 右侧浮动卡片：更像纸片；没有封面图时也有质感 */
+.hv-card {
+  border-radius: 14px;
+  background:
+    linear-gradient(160deg, #ffffff 0%, #fbfbff 60%, #f6f6ff 100%);
+  border: 1px solid rgba(232, 233, 244, 0.9);
+  box-shadow: var(--shadow-md);
+}
+
+.hv-aura {
+  background: radial-gradient(circle at 50% 50%, rgba(142, 161, 255, 0.32), transparent 62%);
+}
+
+.hv-search {
+  background: var(--brand-grad);
+  box-shadow: 0 18px 36px -18px rgba(74, 92, 245, 0.75);
+}
+
+.hv-waves {
+  opacity: 0.5;
+}
+
+/* --------------------------------------------------------------------------
+   6. 区块标题
+   -------------------------------------------------------------------------- */
+
+.section-head {
+  margin-bottom: 18px;
+}
+
+.section-title {
+  font-size: 19px;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+
+.section-title svg {
+  color: var(--brand);
+}
+
+.section-desc {
+  color: var(--muted);
+  font-size: 13.5px;
+}
+
+/* --------------------------------------------------------------------------
+   7. 笔记卡片：白纸 + 细描边 + 悬浮上移
+   -------------------------------------------------------------------------- */
+
+.note-card {
+  border-radius: 18px;
+  background: #fff;
+  border: 1px solid rgba(232, 233, 244, 0.95);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  transition: transform 0.2s var(--ease), box-shadow 0.2s var(--ease), border-color 0.2s var(--ease);
+}
+
+.note-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(74, 92, 245, 0.22);
+  box-shadow: var(--shadow-lg);
+}
+
+.note-cover {
+  border-radius: 18px 18px 0 0;
+  background: linear-gradient(150deg, #f2f4ff, #f7f5ff);
+}
+
+.cover-fallback {
+  color: var(--faint);
+}
+
+.skeleton-card {
+  border-radius: 18px;
+  background: linear-gradient(100deg, #f2f3fa 30%, #f8f9fe 50%, #f2f3fa 70%);
+  background-size: 220% 100%;
+}
+
+/* 头像：统一浅描边，避免纯色块 */
+.avatar {
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  box-shadow: var(--shadow-xs);
+}
+
+/* 侧栏小卡 */
+.quick-card,
+.preview-card,
+.health-card {
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: #fff;
+  box-shadow: var(--shadow-sm);
+}
+
+/* --------------------------------------------------------------------------
+   8. 登录 / 弹窗
+   -------------------------------------------------------------------------- */
+
+.auth-card {
+  border-radius: 22px;
+  border: 1px solid var(--line);
+  background: #fff;
+  box-shadow: var(--shadow-lg);
+}
+
+.auth-aside {
+  background:
+    radial-gradient(420px 260px at 80% 10%, rgba(245, 165, 36, 0.2), transparent 60%),
+    linear-gradient(150deg, #4a5cf5 0%, #6a4bf0 55%, #8b5cf6 100%);
+}
+
+.modal-card {
+  border-radius: 20px;
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-lg);
+}
+
+/* 提示条 */
+.toast {
+  border-radius: 14px;
+  box-shadow: var(--shadow-lg);
+  font-size: 14px;
+}
+
+/* --------------------------------------------------------------------------
+   9. 页脚
+   -------------------------------------------------------------------------- */
+
+.site-footer {
+  border-top: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.site-footer a:hover {
+  color: var(--brand);
+}
+
+/* --------------------------------------------------------------------------
+   10. 深色模式：给本层新增的浅色表面补上深色版本
+   （pages.css 里已有的深色规则带属性选择器，优先级更高，会自动胜出）
+   -------------------------------------------------------------------------- */
+
+[data-theme='dark'] body {
+  background-color: var(--bg);
+  background-image:
+    radial-gradient(880px 480px at 10% -16%, rgba(120, 145, 255, 0.16), transparent 62%),
+    radial-gradient(720px 420px at 94% -10%, rgba(245, 165, 36, 0.08), transparent 60%);
+}
+
+[data-theme='dark'] .site-header {
+  background: rgba(18, 19, 24, 0.78);
+  border-bottom-color: rgba(45, 48, 58, 0.9);
+}
+
+[data-theme='dark'] .brand-name {
+  background: none;
+  -webkit-background-clip: border-box;
+  background-clip: border-box;
+  color: var(--ink);
+}
+
+[data-theme='dark'] .header-search {
+  background: rgba(30, 32, 40, 0.9);
+  border-color: transparent;
+}
+
+[data-theme='dark'] .header-search:focus-within {
+  background: #191b22;
+  border-color: rgba(138, 164, 255, 0.35);
+  box-shadow: 0 0 0 4px rgba(138, 164, 255, 0.12);
+}
+
+/* 深色下输入框不能留白底，否则胶囊里像贴了一块白纸 */
+[data-theme='dark'] .header-search input {
+  background: transparent;
+  color: var(--ink);
+}
+
+[data-theme='dark'] .header-search input::placeholder {
+  color: var(--faint);
+}
+
+/* 标题高亮渐变在深色背景上要提亮，否则会“隐形” */
+[data-theme='dark'] .hero h1 em {
+  background: linear-gradient(96deg, #a9b8ff 0%, #c9b8ff 52%, #ffcf70 128%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+[data-theme='dark'] .nav-link {
+  color: var(--ink-2);
+}
+
+[data-theme='dark'] .nav-link:hover {
+  background: rgba(138, 164, 255, 0.12);
+  color: var(--brand);
+}
+
+[data-theme='dark'] .nav-link.is-active {
+  background: var(--brand);
+  color: #101114;
+}
+
+[data-theme='dark'] .header-menu summary,
+[data-theme='dark'] .header-menu-panel {
+  background: var(--card);
+  border-color: var(--line);
+}
+
+[data-theme='dark'] .btn-ghost {
+  background: var(--card);
+  border-color: var(--line);
+  color: var(--ink-2);
+}
+
+[data-theme='dark'] .input,
+[data-theme='dark'] textarea.input,
+[data-theme='dark'] select.input {
+  background: var(--bg-soft);
+  border-color: var(--line);
+  color: var(--ink);
+}
+
+[data-theme='dark'] .chip,
+[data-theme='dark'] .hero-chips .chip,
+[data-theme='dark'] .eyebrow {
+  background: var(--card);
+  border-color: var(--line);
+  color: var(--ink-3);
+}
+
+[data-theme='dark'] .chip:hover {
+  background: rgba(138, 164, 255, 0.14);
+  border-color: rgba(138, 164, 255, 0.4);
+  color: var(--brand);
+}
+
+[data-theme='dark'] .hero {
+  background:
+    radial-gradient(620px 320px at 88% 12%, rgba(245, 165, 36, 0.08), transparent 62%),
+    radial-gradient(720px 420px at 6% 0%, rgba(120, 145, 255, 0.14), transparent 60%),
+    linear-gradient(160deg, #1a1c22 0%, #171920 58%, #191b24 100%);
+  border-color: var(--line);
+}
+
+[data-theme='dark'] .hero::after {
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.12), transparent);
+}
+
+[data-theme='dark'] .hero-search {
+  background: var(--bg-soft);
+  border-color: var(--line);
+}
+
+[data-theme='dark'] .note-card,
+[data-theme='dark'] .quick-card,
+[data-theme='dark'] .preview-card,
+[data-theme='dark'] .health-card,
+[data-theme='dark'] .modal-card,
+[data-theme='dark'] .hv-card {
+  background: var(--card);
+  border-color: var(--line);
+}
+
+[data-theme='dark'] .note-cover {
+  background: linear-gradient(150deg, #20222a, #1c1e26);
+}
+
+[data-theme='dark'] .skeleton-card {
+  background: linear-gradient(100deg, #1e2027 30%, #24262f 50%, #1e2027 70%);
+  background-size: 220% 100%;
+}
+
+[data-theme='dark'] .toast {
+  background: var(--card);
+  border-color: var(--line);
+  color: var(--ink);
+}
+
+/* --------------------------------------------------------------------------
+   11. 小屏适配
+   -------------------------------------------------------------------------- */
+
+@media (max-width: 900px) {
+  .hero {
+    border-radius: 22px;
+  }
+  .hero h1 {
+    font-size: clamp(28px, 6vw, 36px);
+  }
+  .hero-search {
+    height: 54px;
+  }
+  .brand-name {
+    font-size: 17px;
+  }
+}

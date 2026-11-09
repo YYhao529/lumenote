@@ -1,0 +1,30 @@
+name: lumenote-mysql
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: mysql8
+    restart: unless-stopped
+    ports:
+      - "${MYSQL_PORT:-3306}:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?请在 .env 里设置 MYSQL_ROOT_PASSWORD}
+      MYSQL_ROOT_HOST: ${MYSQL_ROOT_HOST:-%}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-lumenote}
+      TZ: Asia/Shanghai
+    command:
+      # 项目 JDBC URL 是 useSSL=false，caching_sha2_password 在这种连接上需要
+      # allowPublicKeyRetrieval=true 才能握手；改用 mysql_native_password 免改配置。
+      - --default-authentication-plugin=mysql_native_password
+    volumes:
+      # 数据绑定挂载到宿主机目录（不是匿名卷）：容器随便删，数据在 Linux 文件系统上。
+      # 目录属主必须是容器里的 mysql 用户（默认 999:999），start-mysql.sh 会先 chown。
+      - ${MYSQL_DATA_DIR:-/opt/lumenote/mysql8/data}:/var/lib/mysql
+      - ./conf/my.cnf:/etc/mysql/conf.d/my.cnf:ro
+      - ./init:/docker-entrypoint-initdb.d:ro
+    # 这里不写 healthcheck：密码要用 $$ 转义，compose 各版本展开时机不一致，
+    # 容易变成 `$$` 被 shell 当 PID。就绪判断交给 start-mysql.sh 轮询 mysqladmin。
+    ulimits:
+      nofile:
+        soft: 65535
+        hard: 65535

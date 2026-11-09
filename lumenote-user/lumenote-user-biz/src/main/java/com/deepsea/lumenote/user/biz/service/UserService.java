@@ -24,9 +24,19 @@ public interface UserService {
     Response<Long> register(RegisterUserReqDTO registerUserReqDTO);
 
     /**
-     * 根据手机号查询用户信息
+     * 根据手机号查询用户信息（只返回 ID）
      */
     Response<FindUserByPhoneRspDTO> findByPhone(FindUserByPhoneReqDTO findUserByPhoneReqDTO);
+
+    /**
+     * 校验手机号 + 密码，匹配返回用户 ID，否则返回 null
+     */
+    Response<Long> verifyPassword(VerifyPasswordReqDTO verifyPasswordReqDTO);
+
+    /**
+     * 按用户 ID 校验密码
+     */
+    Response<Boolean> verifyPasswordByUserId(VerifyPasswordByUserIdReqDTO verifyPasswordByUserIdReqDTO);
 
     /**
      * 修改密码

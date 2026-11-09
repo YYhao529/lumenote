@@ -1,5 +1,5 @@
 spring:
   cassandra:
     keyspace-name: lumenote
-    contact-points: 127.0.0.1
+    contact-points: 192.168.100.111 # 虚拟机 Docker 里的 Cassandra
     port: 9042

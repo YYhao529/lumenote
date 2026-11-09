@@ -15,7 +15,7 @@
 
     <artifactId>lumenote-auth</artifactId>
     <name>${project.artifactId}</name>
-    <description>时光笔记：认证服务（负责处理用户登录、注册、账号注销等）</description>
+    <description>拾光笔记：认证服务（负责处理用户登录、注册、账号注销等）</description>
 
     <dependencies>
         <dependency>

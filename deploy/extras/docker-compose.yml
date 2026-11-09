@@ -1,0 +1,127 @@
+name: lumenote-extras
+
+# 这些服务都要回连宿主机上的 mysql8，统一用 host.docker.internal（见 extra_hosts）
+x-extra-host: &extra_host
+  - "host.docker.internal:host-gateway"
+
+services:
+  # ---------------- MinIO：对象存储（oss 模块）----------------
+  minio:
+    image: ${MINIO_IMAGE:-minio/minio:latest}
+    container_name: minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    ports:
+      - "${MINIO_PORT:-9000}:9000"       # S3 API
+      - "${MINIO_CONSOLE_PORT:-9001}:9001" # 控制台
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-deepsea}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?请在 .env 设置 MINIO_ROOT_PASSWORD（至少 8 位）}
+      TZ: Asia/Shanghai
+    volumes:
+      - ${MINIO_DATA_DIR:-/opt/lumenote/minio/data}:/data
+
+  # ---------------- Elasticsearch（search 模块）----------------
+  # 项目用 elasticsearch-rest-high-level-client 7.3.0，服务端保持 7.x（这里用 7.3.0 完全对版）
+  elasticsearch:
+    image: ${ES_IMAGE:-elasticsearch:7.3.0}
+    container_name: elasticsearch
+    restart: unless-stopped
+    environment:
+      discovery.type: single-node
+      ES_JAVA_OPTS: "-Xms512m -Xmx512m"
+      xpack.security.enabled: "false"
+      xpack.ml.enabled: "false"
+      bootstrap.memory_lock: "true"
+      TZ: Asia/Shanghai
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65535
+        hard: 65535
+    ports:
+      - "${ES_PORT:-9200}:9200"
+    volumes:
+      - ${ES_DATA_DIR:-/opt/lumenote/es/data}:/usr/share/elasticsearch/data
+
+  # ---------------- Kibana：ES 的可视化 / 监控台 ----------------
+  # 版本必须与 ES 完全一致（7.3.0），否则启动会直接拒绝连接。
+  # 镜像不一定拉得到，放进 profile，需要时：docker compose --profile kibana up -d
+  kibana:
+    image: ${KIBANA_IMAGE:-kibana:7.3.0}
+    container_name: kibana
+    profiles: ["kibana"]
+    restart: unless-stopped
+    depends_on:
+      - elasticsearch
+    environment:
+      TZ: Asia/Shanghai
+      # 首次启动要跑 webpack bundle 优化，堆给 384M 会直接 FATAL OOM 并无限重试；
+      # 优化完稳态只占 400~500M，所以堆 1G、容器上限 1.3G。
+      NODE_OPTIONS: "--max-old-space-size=1024"
+    ports:
+      - "${KIBANA_PORT:-5601}:5601"
+    volumes:
+      - ./conf/kibana/kibana.yml:/usr/share/kibana/config/kibana.yml:ro
+    mem_limit: 1300m
+
+  # ---------------- Cassandra（kv 模块）----------------
+  cassandra:
+    image: cassandra:${CASSANDRA_VERSION:-4.1}
+    container_name: cassandra
+    restart: unless-stopped
+    environment:
+      CASSANDRA_CLUSTER_NAME: lumenote
+      CASSANDRA_DC: dc1
+      CASSANDRA_RACK: rack1
+      MAX_HEAP_SIZE: 512M
+      HEAP_NEWSIZE: 128M
+      TZ: Asia/Shanghai
+    ports:
+      - "${CASSANDRA_PORT:-9042}:9042"
+    volumes:
+      - ${CASSANDRA_DATA_DIR:-/opt/lumenote/cassandra/data}:/var/lib/cassandra
+
+  # ---------------- Canal：已改为在宿主机（Windows）运行，不再用容器 ----------------
+  # 如果以后要放回容器，见 canal-build/Dockerfile + conf/canal/ 模板；
+  # 注意 canal 需要：MySQL binlog（本项目已开 ROW/FULL）+ 复制账号 canal/canal（已在 MySQL 里建好）。
+
+  # ---------------- ZooKeeper：Leaf 雪花模式用它分配 workerId ----------------
+  zookeeper:
+    image: ${ZK_IMAGE:-zookeeper:3.5.6}
+    container_name: zookeeper
+    restart: unless-stopped
+    # 用 host 网络：走 docker-proxy 端口映射时，ZK 的会话握手在 Windows 侧要 30+ 秒才建立，
+    # Leaf 的重试预算只有 4 秒，必然失败。host 网络少一跳，握手恢复正常。
+    network_mode: host
+    environment:
+      ZOO_MY_ID: 1
+      # 单节点也要写这一行，entrypoint 靠它生成 zoo.cfg
+      ZOO_SERVERS: server.1=0.0.0.0:2888:3888;2181
+      # 允许 4lw 运维命令（ruok / srvr / stat），排查时很好用
+      ZOO_4LW_COMMANDS_WHITELIST: "*"
+      TZ: Asia/Shanghai
+    volumes:
+      - ${ZK_DATA_DIR:-/opt/lumenote/zookeeper/data}:/data
+      - ${ZK_DATALOG_DIR:-/opt/lumenote/zookeeper/datalog}:/datalog
+
+  # ---------------- xxl-job-admin（data-align 模块）----------------
+  xxl-job:
+    image: xuxueli/xxl-job-admin:${XXL_JOB_VERSION:-2.4.1}
+    container_name: xxl-job
+    # 镜像还没拉到时不想让 docker compose up 整体失败，所以放进 profile，
+    # 需要时：docker compose --profile xxl-job up -d
+    profiles: ["xxl-job"]
+    restart: unless-stopped
+    ports:
+      - "${XXL_JOB_PORT:-7777}:8080"
+    extra_hosts: *extra_host
+    environment:
+      PARAMS: >-
+        --spring.datasource.url=jdbc:mysql://host.docker.internal:${MYSQL_PORT:-3306}/${XXL_JOB_DB:-xxl_job}?useUnicode=true&characterEncoding=UTF-8&autoReconnect=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai
+        --spring.datasource.username=${MYSQL_USER:-root}
+        --spring.datasource.password=${MYSQL_PASSWORD:?需要 MySQL 密码（自动取自 mysql8/.env）}
+        --xxl.job.accessToken=${XXL_JOB_ACCESS_TOKEN:-default_token}
+      TZ: Asia/Shanghai

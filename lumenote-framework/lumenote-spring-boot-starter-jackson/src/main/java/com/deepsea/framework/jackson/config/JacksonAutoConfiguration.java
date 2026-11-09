@@ -3,6 +3,8 @@ package com.deepsea.framework.jackson.config;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.module.SimpleModule;
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.fasterxml.jackson.datatype.jsr310.deser.LocalDateDeserializer;
 import com.fasterxml.jackson.datatype.jsr310.deser.LocalDateTimeDeserializer;
@@ -66,6 +68,15 @@ public class JacksonAutoConfiguration {
                 new YearMonthDeserializer(DateConstants.DATE_FORMAT_Y_M));
 
         objectMapper.registerModule(javaTimeModule);
+
+        // 雪花 ID 是 19 位 Long，超出 JS Number 安全整数范围（2^53），
+        // 默认按 JSON 数字返回会让前端 JSON.parse 丢精度（末尾几位变 0），
+        // 典型症状：列表里拿到的 noteId 拿去查详情，报「笔记不存在」。
+        // 统一把 Long 序列化成字符串；反序列化仍兼容数字与字符串。
+        SimpleModule longToStringModule = new SimpleModule();
+        longToStringModule.addSerializer(Long.class, ToStringSerializer.instance);
+        longToStringModule.addSerializer(Long.TYPE, ToStringSerializer.instance);
+        objectMapper.registerModule(longToStringModule);
 
         // 初始化 JsonUtils 中的 ObjectMapper
         JsonUtils.init(objectMapper);

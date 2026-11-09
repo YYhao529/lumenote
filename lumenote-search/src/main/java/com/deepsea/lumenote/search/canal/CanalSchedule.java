@@ -10,7 +10,9 @@ import com.deepsea.lumenote.search.enums.NoteStatusEnum;
 import com.deepsea.lumenote.search.enums.NoteVisibleEnum;
 import com.deepsea.lumenote.search.index.NoteIndex;
 import com.deepsea.lumenote.search.index.NoteIndexDocBuilder;
+import com.deepsea.lumenote.search.index.UserIndex;
 import lombok.extern.slf4j.Slf4j;
+import org.elasticsearch.ElasticsearchStatusException;
 import org.elasticsearch.action.delete.DeleteRequest;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.update.UpdateRequest;
@@ -106,8 +108,15 @@ public class CanalSchedule implements Runnable {
 
                     log.info("EventType: {}, Database: {}, Table: {}, Columns: {}", eventType, database, table, columnMap);
 
-                    // 处理事件
-                    processEvent(columnMap, table, eventType);
+                    // 逐条处理并隔离异常：单条坏事件不能把整批拖回滚。
+                    // 之前 t_user_count 的 ES update 因文档不存在抛 document_missing_exception，
+                    // 整批 rollback 后无限重试，导致后面所有笔记永远进不了 ES。
+                    try {
+                        processEvent(columnMap, table, eventType);
+                    } catch (Exception e) {
+                        log.error("处理单条 Canal 事件失败，已跳过并继续, table: {}, eventType: {}, error: {}",
+                                table, eventType, e.getMessage());
+                    }
                 }
             }
         }
@@ -120,6 +129,7 @@ public class CanalSchedule implements Runnable {
     private void processEvent(Map<String, Object> columnMap, String table, CanalEntry.EventType eventType) throws IOException {
         switch (table) {
             case "t_user" -> handleUserEvent(columnMap, eventType); // 用户表
+            case "t_user_count" -> handleUserCountEvent(columnMap, eventType); // 用户计数表
             case "t_note" -> handleNoteEvent(columnMap, eventType); // 笔记表
             case "t_note_count" -> handleNoteCountEvent(columnMap, eventType); // 笔记计数表
             default -> log.warn("Table: {} not support", table);
@@ -192,9 +202,9 @@ public class CanalSchedule implements Runnable {
         UpdateRequest updateRequest = new UpdateRequest(NoteIndex.NAME, noteId).doc(doc);
         try {
             restHighLevelClient.update(updateRequest, RequestOptions.DEFAULT);
-        } catch (DocumentMissingException e) {
+        } catch (DocumentMissingException | ElasticsearchStatusException e) {
             // 索引中还没有该笔记文档（可能尚未同步过），退化为全量同步
-            log.info("==> ES 中不存在笔记文档，转为全量同步, noteId: {}", noteId);
+            log.info("==> ES 中不存在笔记文档，转为全量同步, noteId: {}, error: {}", noteId, e.getMessage());
             syncNoteIndex(Long.valueOf(noteId));
         }
     }
@@ -216,10 +226,66 @@ public class CanalSchedule implements Runnable {
     }
 
     /**
-     * 处理用户表事件
+     * 处理用户表事件：新增 / 更新时全量刷新该用户的 ES 文档
      */
-    private void handleUserEvent(Map<String, Object> columnMap, CanalEntry.EventType eventType) {
-        // TODO
+    private void handleUserEvent(Map<String, Object> columnMap, CanalEntry.EventType eventType) throws IOException {
+        if (eventType == CanalEntry.EventType.DELETE) {
+            return;
+        }
+
+        Object userIdValue = columnMap.get("id");
+        if (Objects.isNull(userIdValue)) {
+            return;
+        }
+
+        syncUserIndex(Long.valueOf(String.valueOf(userIdValue)));
+    }
+
+    /**
+     * 处理用户计数表事件：局部更新 ES 中的粉丝数 / 笔记数
+     */
+    private void handleUserCountEvent(Map<String, Object> columnMap, CanalEntry.EventType eventType) throws IOException {
+        if (eventType == CanalEntry.EventType.DELETE) {
+            return;
+        }
+
+        Object userIdValue = columnMap.get("user_id");
+        if (Objects.isNull(userIdValue)) {
+            return;
+        }
+
+        String userId = String.valueOf(userIdValue);
+
+        Map<String, Object> doc = new HashMap<>();
+        putNumberIfPresent(doc, UserIndex.FIELD_USER_NOTE_TOTAL, columnMap.get("note_total"));
+        putNumberIfPresent(doc, UserIndex.FIELD_USER_FANS_TOTAL, columnMap.get("fans_total"));
+
+        if (doc.isEmpty()) {
+            return;
+        }
+
+        UpdateRequest updateRequest = new UpdateRequest(UserIndex.NAME, userId).doc(doc);
+        try {
+            restHighLevelClient.update(updateRequest, RequestOptions.DEFAULT);
+        } catch (DocumentMissingException | ElasticsearchStatusException e) {
+            // 索引中还没有该用户文档（可能尚未同步过），退化为全量同步
+            log.info("==> ES 中不存在用户文档，转为全量同步, userId: {}, error: {}", userId, e.getMessage());
+            syncUserIndex(Long.valueOf(userId));
+        }
+    }
+
+    /**
+     * 同步用户索引
+     */
+    private void syncUserIndex(Long userId) throws IOException {
+        List<Map<String, Object>> result = selectMapper.selectEsUserIndexData(userId);
+
+        for (Map<String, Object> record : result) {
+            IndexRequest indexRequest = new IndexRequest(UserIndex.NAME);
+            indexRequest.id(String.valueOf(record.get(UserIndex.FIELD_USER_ID)));
+            indexRequest.source(record);
+            restHighLevelClient.index(indexRequest, RequestOptions.DEFAULT);
+        }
     }
 
     /**

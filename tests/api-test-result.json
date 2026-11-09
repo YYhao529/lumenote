@@ -1,0 +1,212 @@
+[
+  {
+    "id": "GW-02",
+    "section": "1. 网关 / 鉴权",
+    "name": "未登录访问受保护接口 401",
+    "ok": true,
+    "detail": "HTTP 401"
+  },
+  {
+    "id": "GW-04",
+    "section": "1. 网关 / 鉴权",
+    "name": "公开接口免鉴权",
+    "ok": true,
+    "detail": "HTTP 200"
+  },
+  {
+    "id": "GW-01",
+    "section": "1. 网关 / 鉴权",
+    "name": "未知路由不返回 5xx",
+    "ok": true,
+    "detail": "HTTP 401"
+  },
+  {
+    "id": "AUTH-03",
+    "section": "2. 认证 AUTH",
+    "name": "错误验证码被拒",
+    "ok": true,
+    "detail": "errorCode=AUTH-20001"
+  },
+  {
+    "id": "AUTH-02",
+    "section": "2. 认证 AUTH",
+    "name": "验证码登录成功（老用户）",
+    "ok": true,
+    "detail": "token 128 字符"
+  },
+  {
+    "id": "AUTH-07",
+    "section": "2. 认证 AUTH",
+    "name": "新手机号登录（自动注册）",
+    "ok": true,
+    "detail": "token 128 字符"
+  },
+  {
+    "id": "USER-04",
+    "section": "3. 用户 USER",
+    "name": "查询用户信息",
+    "ok": true,
+    "detail": "nickname=深海，返回字段: id,nickname,lumenoteId,avatar,introduction,backgroundImg"
+  },
+  {
+    "id": "USER-08",
+    "section": "3. 用户 USER",
+    "name": "昵称边界：1 字拒绝 / 2 字通过",
+    "ok": true,
+    "detail": "1字=拒绝 2字=通过"
+  },
+  {
+    "id": "USER-09",
+    "section": "3. 用户 USER",
+    "name": "拾光笔记号边界：5 位拒绝 / 6 位通过",
+    "ok": true,
+    "detail": "5位=拒绝 6位=通过"
+  },
+  {
+    "id": "NOTE-01",
+    "section": "4. 笔记 NOTE",
+    "name": "发布图文笔记并拿到 ID",
+    "ok": true,
+    "detail": "接口直接返回 noteId=2116927759904145428"
+  },
+  {
+    "id": "NOTE-05",
+    "section": "4. 笔记 NOTE",
+    "name": "详情标题一致",
+    "ok": true,
+    "detail": "title=API Test Note 883208"
+  },
+  {
+    "id": "NOTE-11/12",
+    "section": "4. 笔记 NOTE",
+    "name": "点赞成功 + 重复点赞被拒",
+    "ok": true,
+    "detail": "第二次 errorCode=NOTE-20010"
+  },
+  {
+    "id": "NOTE-13",
+    "section": "4. 笔记 NOTE",
+    "name": "收藏笔记",
+    "ok": true,
+    "detail": "errorCode=null"
+  },
+  {
+    "id": "NOTE-16",
+    "section": "4. 笔记 NOTE",
+    "name": "发布列表分页",
+    "ok": true,
+    "detail": "返回 9 条"
+  },
+  {
+    "id": "NOTE-08",
+    "section": "4. 笔记 NOTE",
+    "name": "越权删除他人笔记被拒",
+    "ok": true,
+    "detail": "errorCode=NOTE-20006"
+  },
+  {
+    "id": "CNT-04",
+    "section": "5. 计数 COUNT（MQ 最终一致）",
+    "name": "点赞后计数 +1",
+    "ok": true,
+    "detail": "likeTotal=1"
+  },
+  {
+    "id": "REL-01/02",
+    "section": "6. 关注关系 REL",
+    "name": "关注成功 + 重复关注不报 5xx",
+    "ok": true,
+    "detail": "第二次 errorCode=RELATION-20004"
+  },
+  {
+    "id": "REL-06",
+    "section": "6. 关注关系 REL",
+    "name": "关注列表可查询",
+    "ok": true,
+    "detail": "totalCount=1"
+  },
+  {
+    "id": "REL-04",
+    "section": "6. 关注关系 REL",
+    "name": "取消关注",
+    "ok": true,
+    "detail": "errorCode=null"
+  },
+  {
+    "id": "KV-01",
+    "section": "7. 键值存储 KV（直连 8084，未接网关）",
+    "name": "写入正文到 Cassandra",
+    "ok": true,
+    "detail": "errorCode=null"
+  },
+  {
+    "id": "KV-03",
+    "section": "7. 键值存储 KV（直连 8084，未接网关）",
+    "name": "读回正文一致",
+    "ok": true,
+    "detail": "content=cassandra content test"
+  },
+  {
+    "id": "OSS-01",
+    "section": "8. 对象存储 OSS（MinIO）",
+    "name": "上传 PNG 返回 URL",
+    "ok": true,
+    "detail": "http://192.168.100.111:9000/deepsea-lumenote/9336af155473451c9c7d671fcbe0b36f.png"
+  },
+  {
+    "id": "OSS-02",
+    "section": "8. 对象存储 OSS（MinIO）",
+    "name": "上传后 URL 可匿名访问",
+    "ok": true,
+    "detail": "HTTP 200"
+  },
+  {
+    "id": "OSS-04",
+    "section": "8. 对象存储 OSS（MinIO）",
+    "name": "非图片类型应被拒绝（安全）",
+    "ok": true,
+    "detail": "已拒绝 OSS-20001"
+  },
+  {
+    "id": "SRH-01/06",
+    "section": "9. 搜索 SEARCH",
+    "name": "搜索命中刚发布的笔记（Canal 同步）",
+    "ok": true,
+    "detail": "totalCount=2"
+  },
+  {
+    "id": "SRH-09",
+    "section": "9. 搜索 SEARCH",
+    "name": "重建笔记索引",
+    "ok": true,
+    "detail": "errorCode=null"
+  },
+  {
+    "id": "IDG-01",
+    "section": "10. 分布式 ID（直连 8085，未接网关）",
+    "name": "号段取号递增",
+    "ok": true,
+    "detail": "4009 → 4010"
+  },
+  {
+    "id": "IDG-05",
+    "section": "10. 分布式 ID（直连 8085，未接网关）",
+    "name": "雪花取号非空且为 19 位",
+    "ok": true,
+    "detail": "id=2116927782498861096"
+  },
+  {
+    "id": "AIGC-01",
+    "section": "11. 智能助手 AIGC",
+    "name": "同步对话",
+    "ok": true,
+    "detail": "reply=Hello there, friend! 👋"
+  },
+  {
+    "id": "AIGC-02",
+    "section": "11. 智能助手 AIGC",
+    "name": "流式对话返回 SSE",
+    "ok": true,
+    "detail": "事件数 6"
+  }
+]

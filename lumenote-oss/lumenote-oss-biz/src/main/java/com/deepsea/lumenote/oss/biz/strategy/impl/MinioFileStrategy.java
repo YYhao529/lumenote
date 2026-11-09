@@ -9,6 +9,7 @@ import io.minio.PutObjectArgs;
 import jakarta.annotation.Resource;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -39,13 +40,18 @@ public class MinioFileStrategy implements FileStrategy {
 
         // 文件的原始名称
         String originalFilename = file.getOriginalFilename();
-        // 文件的 Content-Type
-        String contentType = file.getContentType();
+        if (!StringUtils.isNotBlank(originalFilename)) {
+            throw new BizException(ResponseCodeEnum.FILE_EMPTY);
+        }
 
         // 生成存储对象的名称（将 UUID 字符串中的 - 替换成空字符串）
         String key = UUID.randomUUID().toString().replace("-", "");
-        // 获取文件的后缀，如：.jpg
-        String suffix = originalFilename.substring(originalFilename.lastIndexOf("."));
+        // 获取文件的后缀，如：.jpg；无后缀时也能正常上传
+        String suffix = "";
+        int dotIndex = originalFilename.lastIndexOf('.');
+        if (dotIndex >= 0) {
+            suffix = originalFilename.substring(dotIndex);
+        }
 
         // 拼接上文件后缀，如：123456.jpg
         String objectName = String.format("%s%s", key, suffix);
