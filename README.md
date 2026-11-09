@@ -2,7 +2,6 @@
 
 仿小红书的图文 / 视频笔记社区：Spring Cloud Alibaba 微服务后端 + 无构建工具的 PC 原生 JavaScript 前端 + 基于 Spring AI 的「小拾」智能助手。
 
-> 项目原名 `xiaohashu`，现已统一更名为 `lumenote / 拾光笔记`。
 
 ---
 
@@ -223,21 +222,3 @@ lumenote/
 ├── tests/                    # 接口回归脚本
 └── pom.xml
 ```
-
----
-
-## 9. 已知限制 / Roadmap
-
-- 评论、关注流 / 推荐流、`/user/me`、发布返回笔记 ID 尚未实现。
-- 全局 `Long -> String` 序列化未统一；前端对雪花 ID 做了兼容处理。
-- 未引入 Sentinel / Seata；当前一致性主要靠 MQ + 对账任务。
-- 开发配置中的虚拟机 IP、默认密码仅用于本地联调，生产必须改为环境变量 / 配置中心。
-- 旧提交历史中曾包含已删除的云账号密钥，建议轮换相关密钥。
-
----
-
-## 10. 安全提示
-
-- 不要提交 `.env`、`*.pem`、`application-local.yaml` 等本地配置。
-- 生产环境必须设置 `DB_PASSWORD`、`REDIS_PASSWORD`、`RABBITMQ_PASSWORD`、`DEEPSEEK_API_KEY` 等环境变量。
-- `admin` / `1234` 这类开发默认值不要带到公网。
